@@ -33,7 +33,7 @@ $ npm run config:defaults:liquid
 
 ### 3. Run the Frontend
 
-_Make sure to use Node.js 20.x and npm 9.x or newer._
+_Make sure to use Node.js 16.10 and npm 7._
 
 Install project dependencies and run the frontend server:
 
@@ -70,7 +70,7 @@ Set up the [Mempool backend](../backend/) first, if you haven't already.
 
 ### 1. Build the Frontend
 
-_Make sure to use Node.js 20.x and npm 9.x or newer._
+_Make sure to use Node.js 16.10 and npm 7._
 
 Build the frontend:
 

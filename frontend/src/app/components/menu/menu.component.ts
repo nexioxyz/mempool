@@ -1,11 +1,10 @@
 import { Component, OnInit, Input, Output, EventEmitter, HostListener, OnDestroy } from '@angular/core';
 import { Observable } from 'rxjs';
-import { MenuGroup } from '@interfaces/services.interface';
-import { StorageService } from '@app/services/storage.service';
+import { MenuGroup } from '../../interfaces/services.interface';
+import { StorageService } from '../../services/storage.service';
 import { Router, NavigationStart } from '@angular/router';
-import { StateService } from '@app/services/state.service';
-import { IUser, ServicesApiServices } from '@app/services/services-api.service';
-import { AuthServiceMempool } from '@app/services/auth.service';
+import { StateService } from '../../services/state.service';
+import { IUser, ServicesApiServices } from '../../services/services-api.service';
 
 @Component({
   selector: 'app-menu',
@@ -27,8 +26,7 @@ export class MenuComponent implements OnInit, OnDestroy {
     private servicesApiServices: ServicesApiServices,
     private storageService: StorageService,
     private router: Router,
-    private stateService: StateService,
-    private authService: AuthServiceMempool
+    private stateService: StateService
   ) {}
 
   ngOnInit(): void {
@@ -63,19 +61,12 @@ export class MenuComponent implements OnInit, OnDestroy {
       this.loggedOut.emit(true);
       if (this.stateService.env.GIT_COMMIT_HASH_MEMPOOL_SPACE) {
         this.userMenuGroups$ = this.servicesApiServices.getUserMenuGroups$();
-        this.authService.logout();
-        if (window.location.toString().includes('services')) {
-          this.router.navigateByUrl('/login');
-        }
+        this.router.navigateByUrl('/');
       }
     });
   }
 
   onLinkClick(link) {
-    if (link === 'logout') {
-      this.toggleMenu(false);
-      return;
-    }
     if (!this.isServicesPage || this.isSmallScreen()) {
       this.toggleMenu(false);
     }

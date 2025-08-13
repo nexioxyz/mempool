@@ -1,5 +1,9 @@
 version: "3.7"
 
+networks:
+  surge-network:
+    external: true
+
 services:
   web:
     environment:
@@ -11,14 +15,20 @@ services:
     stop_grace_period: 1m
     command: "./wait-for db:3306 --timeout=720 -- nginx -g 'daemon off;'"
     ports:
-      - 80:8080
+      - 8080:8080
+    networks:
+      - surge-network
+
   api:
     environment:
-      MEMPOOL_BACKEND: "none"
-      CORE_RPC_HOST: "172.27.0.1"
-      CORE_RPC_PORT: "8332"
-      CORE_RPC_USERNAME: "mempool"
-      CORE_RPC_PASSWORD: "mempool"
+      MEMPOOL_BACKEND: "electrum"
+      ELECTRUM_HOST: "electrs"
+      ELECTRUM_PORT: "50001"
+      ELECTRUM_TLS_ENABLED: "false"
+      CORE_RPC_HOST: "bitcoind"
+      CORE_RPC_PORT: "38332"
+      CORE_RPC_USERNAME: "bitcoin"
+      CORE_RPC_PASSWORD: "bitcoin"
       DATABASE_ENABLED: "true"
       DATABASE_HOST: "db"
       DATABASE_DATABASE: "mempool"
@@ -32,6 +42,11 @@ services:
     command: "./wait-for-it.sh db:3306 --timeout=720 --strict -- ./start.sh"
     volumes:
       - ./data:/backend/cache
+    ports:
+      - 8999:8999
+    networks:
+      - surge-network
+
   db:
     environment:
       MYSQL_DATABASE: "mempool"
@@ -44,3 +59,5 @@ services:
     stop_grace_period: 1m
     volumes:
       - ./mysql/data:/var/lib/mysql
+    networks:
+      - surge-network

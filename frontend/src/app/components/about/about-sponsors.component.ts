@@ -1,5 +1,5 @@
 import { Component, Input } from '@angular/core';
-import { EnterpriseService } from '@app/services/enterprise.service';
+import { EnterpriseService } from '../../services/enterprise.service';
 
 @Component({
   selector: 'app-about-sponsors',

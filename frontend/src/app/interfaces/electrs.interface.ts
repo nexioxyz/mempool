@@ -1,5 +1,5 @@
-import { Price } from '@app/services/price.service';
-import { IChannel } from '@interfaces/node-api.interface';
+import { Price } from '../services/price.service';
+import { IChannel } from './node-api.interface';
 
 export interface Transaction {
   txid: string;
@@ -17,13 +17,10 @@ export interface Transaction {
   feePerVsize?: number;
   effectiveFeePerVsize?: number;
   ancestors?: Ancestor[];
-  descendants?: Ancestor[];
   bestDescendant?: BestDescendant | null;
   cpfpChecked?: boolean;
   acceleration?: boolean;
   acceleratedBy?: number[];
-  acceleratedAt?: number;
-  feeDelta?: number;
   deleteAfter?: number;
   _unblinded?: any;
   _deduced?: boolean;
@@ -32,8 +29,6 @@ export interface Transaction {
   price?: Price;
   sigops?: number;
   flags?: bigint;
-  largeInput?: boolean;
-  largeOutput?: boolean;
 }
 
 export interface TransactionChannels {
@@ -76,10 +71,6 @@ export interface Vin {
   issuance?: Issuance;
   // Custom
   lazy?: boolean;
-  // Ord
-  isInscription?: boolean;
-  // temporary field for extracted raw simplicity scripts
-  inner_simplicityscript?: string;
 }
 
 interface Issuance {
@@ -104,8 +95,6 @@ export interface Vout {
   valuecommitment?: number;
   asset?: string;
   pegout?: Pegout;
-  // Ord
-  isRunestone?: boolean;
 }
 
 interface Pegout {
@@ -167,8 +156,6 @@ export interface AddressTxSummary {
   value: number;
   height: number;
   time: number;
-  price?: number;
-  tx_position?: number;
 }
 
 export interface ChainStats {
@@ -241,11 +228,4 @@ interface AssetStats {
   peg_out_count: number;
   peg_out_amount: number;
   burn_count: number;
-}
-
-export interface Utxo {
-  txid: string;
-  vout: number;
-  value: number;
-  status: Status;
 }

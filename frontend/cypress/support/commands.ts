@@ -44,7 +44,6 @@
 
 import { PageIdleDetector } from './PageIdleDetector';
 import { mockWebSocket } from './websocket';
-import { mockWebSocketV2 } from './websocket';
 
 /* global Cypress */
 const codes = {
@@ -71,10 +70,6 @@ Cypress.Commands.add(
 
 Cypress.Commands.add('mockMempoolSocket', () => {
   mockWebSocket();
-});
-
-Cypress.Commands.add('mockMempoolSocketV2', () => {
-  mockWebSocketV2();
 });
 
 Cypress.Commands.add('changeNetwork', (network: "testnet" | "testnet4" | "signet" | "liquid" | "mainnet") => {

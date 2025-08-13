@@ -1,13 +1,13 @@
 import { SafeResourceUrl } from '@angular/platform-browser';
-import { ILoadingIndicators } from '@app/services/state.service';
-import { Transaction } from '@interfaces/electrs.interface';
-import { Acceleration, BlockExtended, DifficultyAdjustment, RbfTree, TransactionStripped } from '@interfaces/node-api.interface';
+import { ILoadingIndicators } from '../services/state.service';
+import { Transaction } from './electrs.interface';
+import { Acceleration, BlockExtended, DifficultyAdjustment, RbfTree, TransactionStripped } from './node-api.interface';
 
 export interface WebsocketResponse {
   backend?: 'esplora' | 'electrum' | 'none';
   block?: BlockExtended;
   blocks?: BlockExtended[];
-  conversions?: Record<string, number>;
+  conversions?: any;
   txConfirmed?: string;
   historicalDate?: string;
   mempoolInfo?: MempoolInfo;
@@ -21,8 +21,6 @@ export interface WebsocketResponse {
   rbfInfo?: RbfTree;
   rbfLatest?: RbfTree[];
   rbfLatestSummary?: ReplacementInfo[];
-  stratumJob?: StratumJob;
-  stratumJobs?: Record<number, StratumJob>;
   utxoSpent?: object;
   transactions?: TransactionStripped[];
   loadingIndicators?: ILoadingIndicators;
@@ -38,8 +36,6 @@ export interface WebsocketResponse {
   'track-rbf'?: string;
   'track-rbf-summary'?: boolean;
   'track-accelerations'?: boolean;
-  'track-wallet'?: string;
-  'track-stratum'?: string | number;
   'watch-mempool'?: boolean;
   'refresh-blocks'?: boolean;
 }
@@ -76,13 +72,11 @@ export interface MempoolBlockWithTransactions extends MempoolBlock {
 }
 
 export interface MempoolBlockDelta {
-  block: number;
   added: TransactionStripped[];
   removed: string[];
   changed: { txid: string, rate: number, flags: number, acc: boolean }[];
 }
 export interface MempoolBlockState {
-  block: number;
   transactions: TransactionStripped[];
 }
 export type MempoolBlockUpdate = MempoolBlockDelta | MempoolBlockState;
@@ -147,30 +141,4 @@ export interface HealthCheckHost {
   link?: string;
   statusPage?: SafeResourceUrl;
   flag?: string;
-  hashes?: {
-    frontend?: string;
-    backend?: string;
-    electrs?: string;
-  }
-}
-
-export interface StratumJob {
-  pool: number;
-  height: number;
-  coinbase: string;
-  scriptsig: string;
-  reward: number;
-  jobId: string;
-  extraNonce: string;
-  extraNonce2Size: number;
-  prevHash: string;
-  coinbase1: string;
-  coinbase2: string;
-  merkleBranches: string[];
-  version: string;
-  bits: string;
-  time: string;
-  timestamp: number;
-  cleanJobs: boolean;
-  received: number;
 }

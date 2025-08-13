@@ -9,8 +9,6 @@ import bitcoinClient from '../bitcoin/bitcoin-client';
 import mining from "./mining";
 import PricesRepository from '../../repositories/PricesRepository';
 import AccelerationRepository from '../../repositories/AccelerationRepository';
-import accelerationApi from '../services/acceleration';
-import { handleError } from '../../utils/api';
 
 class MiningRoutes {
   public initRoutes(app: Application) {
@@ -43,8 +41,6 @@ class MiningRoutes {
       .get(config.MEMPOOL.API_URL_PREFIX + 'accelerations/block/:height', this.$getAccelerationsByHeight)
       .get(config.MEMPOOL.API_URL_PREFIX + 'accelerations/recent/:interval', this.$getRecentAccelerations)
       .get(config.MEMPOOL.API_URL_PREFIX + 'accelerations/total', this.$getAccelerationTotals)
-      .get(config.MEMPOOL.API_URL_PREFIX + 'accelerations', this.$getActiveAccelerations)
-      .post(config.MEMPOOL.API_URL_PREFIX + 'acceleration/request/:txid', this.$requestAcceleration)
     ;
   }
 
@@ -54,12 +50,12 @@ class MiningRoutes {
       res.header('Cache-control', 'public');
       res.setHeader('Expires', new Date(Date.now() + 1000 * 300).toUTCString());
       if (['testnet', 'signet', 'liquidtestnet'].includes(config.MEMPOOL.NETWORK)) {
-        handleError(req, res, 400, 'Prices are not available on testnets.');
+        res.status(400).send('Prices are not available on testnets.');
         return;
       }
       const timestamp = parseInt(req.query.timestamp as string, 10) || 0;
       const currency = req.query.currency as string;
-
+      
       let response;
       if (timestamp && currency) {
         response = await PricesRepository.$getNearestHistoricalPrice(timestamp, currency);
@@ -72,7 +68,7 @@ class MiningRoutes {
       }
       res.status(200).send(response);
     } catch (e) {
-      handleError(req, res, 500, 'Failed to get historical prices');
+      res.status(500).send(e instanceof Error ? e.message : e);
     }
   }
 
@@ -85,9 +81,9 @@ class MiningRoutes {
       res.json(stats);
     } catch (e) {
       if (e instanceof Error && e.message.indexOf('This mining pool does not exist') > -1) {
-        handleError(req, res, 404, e.message);
+        res.status(404).send(e.message);
       } else {
-        handleError(req, res, 500, 'Failed to get pool');
+        res.status(500).send(e instanceof Error ? e.message : e);
       }
     }
   }
@@ -104,9 +100,9 @@ class MiningRoutes {
       res.json(poolBlocks);
     } catch (e) {
       if (e instanceof Error && e.message.indexOf('This mining pool does not exist') > -1) {
-        handleError(req, res, 404, e.message);
+        res.status(404).send(e.message);
       } else {
-        handleError(req, res, 500, 'Failed to get blocks for pool');
+        res.status(500).send(e instanceof Error ? e.message : e);
       }
     }
   }
@@ -130,7 +126,7 @@ class MiningRoutes {
         res.json(pools);
       }
     } catch (e) {
-      handleError(req, res, 500, 'Failed to get pools');
+      res.status(500).send(e instanceof Error ? e.message : e);
     }
   }
 
@@ -144,7 +140,7 @@ class MiningRoutes {
       res.setHeader('Expires', new Date(Date.now() + 1000 * 60).toUTCString());
       res.json(stats);
     } catch (e) {
-      handleError(req, res, 500, 'Failed to get pools');
+      res.status(500).send(e instanceof Error ? e.message : e);
     }
   }
 
@@ -158,7 +154,7 @@ class MiningRoutes {
       res.setHeader('Expires', new Date(Date.now() + 1000 * 300).toUTCString());
       res.json(hashrates);
     } catch (e) {
-      handleError(req, res, 500, 'Failed to get pools historical hashrate');
+      res.status(500).send(e instanceof Error ? e.message : e);
     }
   }
 
@@ -173,9 +169,9 @@ class MiningRoutes {
       res.json(hashrates);
     } catch (e) {
       if (e instanceof Error && e.message.indexOf('This mining pool does not exist') > -1) {
-        handleError(req, res, 404, e.message);
+        res.status(404).send(e.message);
       } else {
-        handleError(req, res, 500, 'Failed to get pool historical hashrate');
+        res.status(500).send(e instanceof Error ? e.message : e);
       }
     }
   }
@@ -183,7 +179,7 @@ class MiningRoutes {
   private async $getHistoricalHashrate(req: Request, res: Response) {
     let currentHashrate = 0, currentDifficulty = 0;
     try {
-      currentHashrate = await bitcoinClient.getNetworkHashPs(1008);
+      currentHashrate = await bitcoinClient.getNetworkHashPs();
       currentDifficulty = await bitcoinClient.getDifficulty();
     } catch (e) {
       logger.debug('Bitcoin Core is not available, using zeroed value for current hashrate and difficulty');
@@ -204,7 +200,7 @@ class MiningRoutes {
         currentDifficulty: currentDifficulty,
       });
     } catch (e) {
-      handleError(req, res, 500, 'Failed to get historical hashrate');
+      res.status(500).send(e instanceof Error ? e.message : e);
     }
   }
 
@@ -218,7 +214,7 @@ class MiningRoutes {
       res.setHeader('Expires', new Date(Date.now() + 1000 * 60).toUTCString());
       res.json(blockFees);
     } catch (e) {
-      handleError(req, res, 500, 'Failed to get historical block fees');
+      res.status(500).send(e instanceof Error ? e.message : e);
     }
   }
 
@@ -236,7 +232,7 @@ class MiningRoutes {
       res.setHeader('Expires', new Date(Date.now() + 1000 * 60).toUTCString());
       res.json(blockFees);
     } catch (e) {
-      handleError(req, res, 500, 'Failed to get historical block fees');
+      res.status(500).send(e instanceof Error ? e.message : e);
     }
   }
 
@@ -250,7 +246,7 @@ class MiningRoutes {
       res.setHeader('Expires', new Date(Date.now() + 1000 * 60).toUTCString());
       res.json(blockRewards);
     } catch (e) {
-      handleError(req, res, 500, 'Failed to get historical block rewards');
+      res.status(500).send(e instanceof Error ? e.message : e);
     }
   }
 
@@ -264,7 +260,7 @@ class MiningRoutes {
       res.setHeader('Expires', new Date(Date.now() + 1000 * 60).toUTCString());
       res.json(blockFeeRates);
     } catch (e) {
-      handleError(req, res, 500, 'Failed to get historical block fee rates');
+      res.status(500).send(e instanceof Error ? e.message : e);
     }
   }
 
@@ -282,7 +278,7 @@ class MiningRoutes {
         weights: blockWeights
       });
     } catch (e) {
-      handleError(req, res, 500, 'Failed to get historical block size and weight');
+      res.status(500).send(e instanceof Error ? e.message : e);
     }
   }
 
@@ -294,7 +290,7 @@ class MiningRoutes {
       res.setHeader('Expires', new Date(Date.now() + 1000 * 300).toUTCString());
       res.json(difficulty.map(adj => [adj.time, adj.height, adj.difficulty, adj.adjustment]));
     } catch (e) {
-      handleError(req, res, 500, 'Failed to get historical difficulty adjustments');
+      res.status(500).send(e instanceof Error ? e.message : e);
     }
   }
 
@@ -304,7 +300,7 @@ class MiningRoutes {
       res.setHeader('Expires', new Date(Date.now() + 1000 * 60).toUTCString());
       res.json(response);
     } catch (e) {
-      handleError(req, res, 500, 'Failed to get reward stats');
+      res.status(500).end();
     }
   }
 
@@ -318,7 +314,7 @@ class MiningRoutes {
       res.setHeader('Expires', new Date(Date.now() + 1000 * 60).toUTCString());
       res.json(blocksHealth.map(health => [health.time, health.height, health.match_rate]));
     } catch (e) {
-      handleError(req, res, 500, 'Failed to get historical blocks health');
+      res.status(500).send(e instanceof Error ? e.message : e);
     }
   }
 
@@ -327,7 +323,7 @@ class MiningRoutes {
       const audit = await BlocksAuditsRepository.$getBlockAudit(req.params.hash);
 
       if (!audit) {
-        handleError(req, res, 204, `This block has not been audited.`);
+        res.status(204).send(`This block has not been audited.`);
         return;
       }
 
@@ -336,7 +332,7 @@ class MiningRoutes {
       res.setHeader('Expires', new Date(Date.now() + 1000 * 3600 * 24).toUTCString());
       res.json(audit);
     } catch (e) {
-      handleError(req, res, 500, 'Failed to get block audit');
+      res.status(500).send(e instanceof Error ? e.message : e);
     }
   }
 
@@ -359,7 +355,7 @@ class MiningRoutes {
       res.setHeader('Expires', new Date(Date.now() + 1000 * 300).toUTCString());
       res.json(result);
     } catch (e) {
-      handleError(req, res, 500, 'Failed to get height from timestamp');
+      res.status(500).send(e instanceof Error ? e.message : e);
     }
   }
 
@@ -372,7 +368,7 @@ class MiningRoutes {
       res.setHeader('Expires', new Date(Date.now() + 1000 * 60).toUTCString());
       res.json(await BlocksAuditsRepository.$getBlockAuditScores(height, height - 15));
     } catch (e) {
-      handleError(req, res, 500, 'Failed to get block audit scores');
+      res.status(500).send(e instanceof Error ? e.message : e);
     }
   }
 
@@ -385,7 +381,7 @@ class MiningRoutes {
       res.setHeader('Expires', new Date(Date.now() + 1000 * 3600 * 24).toUTCString());
       res.json(audit || 'null');
     } catch (e) {
-      handleError(req, res, 500, 'Failed to get block audit score');
+      res.status(500).send(e instanceof Error ? e.message : e);
     }
   }
 
@@ -395,12 +391,12 @@ class MiningRoutes {
       res.header('Cache-control', 'public');
       res.setHeader('Expires', new Date(Date.now() + 1000 * 60).toUTCString());
       if (!config.MEMPOOL_SERVICES.ACCELERATIONS || ['testnet', 'signet', 'liquidtestnet', 'liquid'].includes(config.MEMPOOL.NETWORK)) {
-        handleError(req, res, 400, 'Acceleration data is not available.');
+        res.status(400).send('Acceleration data is not available.');
         return;
       }
       res.status(200).send(await AccelerationRepository.$getAccelerationInfo(req.params.slug));
     } catch (e) {
-      handleError(req, res, 500, 'Failed to get accelerations by pool');
+      res.status(500).send(e instanceof Error ? e.message : e);
     }
   }
 
@@ -410,13 +406,13 @@ class MiningRoutes {
       res.header('Cache-control', 'public');
       res.setHeader('Expires', new Date(Date.now() + 1000 * 3600 * 24).toUTCString());
       if (!config.MEMPOOL_SERVICES.ACCELERATIONS || ['testnet', 'signet', 'liquidtestnet', 'liquid'].includes(config.MEMPOOL.NETWORK)) {
-        handleError(req, res, 400, 'Acceleration data is not available.');
+        res.status(400).send('Acceleration data is not available.');
         return;
       }
       const height = req.params.height === undefined ? undefined : parseInt(req.params.height, 10);
       res.status(200).send(await AccelerationRepository.$getAccelerationInfo(null, height));
     } catch (e) {
-      handleError(req, res, 500, 'Failed to get accelerations by height');
+      res.status(500).send(e instanceof Error ? e.message : e);
     }
   }
 
@@ -426,12 +422,12 @@ class MiningRoutes {
       res.header('Cache-control', 'public');
       res.setHeader('Expires', new Date(Date.now() + 1000 * 60).toUTCString());
       if (!config.MEMPOOL_SERVICES.ACCELERATIONS || ['testnet', 'signet', 'liquidtestnet', 'liquid'].includes(config.MEMPOOL.NETWORK)) {
-        handleError(req, res, 400, 'Acceleration data is not available.');
+        res.status(400).send('Acceleration data is not available.');
         return;
       }
       res.status(200).send(await AccelerationRepository.$getAccelerationInfo(null, null, req.params.interval));
     } catch (e) {
-      handleError(req, res, 500, 'Failed to get recent accelerations');
+      res.status(500).send(e instanceof Error ? e.message : e);
     }
   }
 
@@ -441,39 +437,12 @@ class MiningRoutes {
       res.header('Cache-control', 'public');
       res.setHeader('Expires', new Date(Date.now() + 1000 * 60).toUTCString());
       if (!config.MEMPOOL_SERVICES.ACCELERATIONS || ['testnet', 'signet', 'liquidtestnet', 'liquid'].includes(config.MEMPOOL.NETWORK)) {
-        handleError(req, res, 400, 'Acceleration data is not available.');
+        res.status(400).send('Acceleration data is not available.');
         return;
       }
       res.status(200).send(await AccelerationRepository.$getAccelerationTotals(<string>req.query.pool, <string>req.query.interval));
     } catch (e) {
-      handleError(req, res, 500, 'Failed to get acceleration totals');
-    }
-  }
-
-  private async $getActiveAccelerations(req: Request, res: Response): Promise<void> {
-    try {
-      res.header('Pragma', 'public');
-      res.header('Cache-control', 'public');
-      res.setHeader('Expires', new Date(Date.now() + 1000 * 60).toUTCString());
-      if (!config.MEMPOOL_SERVICES.ACCELERATIONS || ['testnet', 'signet', 'liquidtestnet', 'liquid'].includes(config.MEMPOOL.NETWORK)) {
-        handleError(req, res, 400, 'Acceleration data is not available.');
-        return;
-      }
-      res.status(200).send(Object.values(accelerationApi.getAccelerations() || {}));
-    } catch (e) {
-      handleError(req, res, 500, 'Failed to get active accelerations');
-    }
-  }
-
-  private async $requestAcceleration(req: Request, res: Response): Promise<void> {
-    res.setHeader('Pragma', 'no-cache');
-    res.setHeader('Cache-control', 'private, no-store, no-cache, must-revalidate, proxy-revalidate, max-age=0');
-    res.setHeader('expires', -1);
-    try {
-      accelerationApi.accelerationRequested(req.params.txid);
-      res.status(200).send();
-    } catch (e) {
-      handleError(req, res, 500, 'Failed to request acceleration');
+      res.status(500).send(e instanceof Error ? e.message : e);
     }
   }
 }

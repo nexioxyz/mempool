@@ -3,7 +3,7 @@ import * as WebSocket from 'ws';
 import {
   BlockExtended, TransactionExtended, MempoolTransactionExtended, WebsocketResponse,
   OptimizedStatistic, ILoadingIndicators, GbtCandidates, TxTrackingInfo,
-  MempoolDelta, MempoolDeltaTxids
+  MempoolBlockDelta, MempoolDelta, MempoolDeltaTxids
 } from '../mempool.interfaces';
 import blocks from './blocks';
 import memPool from './mempool';
@@ -16,19 +16,16 @@ import transactionUtils from './transaction-utils';
 import rbfCache, { ReplacementInfo } from './rbf-cache';
 import difficultyAdjustment from './difficulty-adjustment';
 import feeApi from './fee-api';
-import BlocksRepository from '../repositories/BlocksRepository';
 import BlocksAuditsRepository from '../repositories/BlocksAuditsRepository';
 import BlocksSummariesRepository from '../repositories/BlocksSummariesRepository';
 import Audit from './audit';
 import priceUpdater from '../tasks/price-updater';
 import { ApiPrice } from '../repositories/PricesRepository';
-import { Acceleration } from './services/acceleration';
 import accelerationApi from './services/acceleration';
 import mempool from './mempool';
 import statistics from './statistics/statistics';
 import accelerationRepository from '../repositories/AccelerationRepository';
 import bitcoinApi from './bitcoin/bitcoin-api-factory';
-import walletApi from './services/wallets';
 
 interface AddressTransactions {
   mempool: MempoolTransactionExtended[],
@@ -36,9 +33,7 @@ interface AddressTransactions {
   removed: MempoolTransactionExtended[],
 }
 import bitcoinSecondClient from './bitcoin/bitcoin-second-client';
-import { calculateMempoolTxCpfp } from './cpfp';
-import { getRecentFirstSeen } from '../utils/file-read';
-import stratumApi, { StratumJob } from './services/stratum';
+import { calculateCpfp } from './cpfp';
 
 // valid 'want' subscriptions
 const wantable = [
@@ -61,8 +56,6 @@ class WebsocketHandler {
   private serializedInitData: string = '{}';
   private lastRbfSummary: ReplacementInfo[] | null = null;
   private mempoolSequence: number = 0;
-
-  private accelerations: Record<string, Acceleration> = {};
 
   constructor() { }
 
@@ -312,14 +305,6 @@ class WebsocketHandler {
             }
           }
 
-          if (parsedMessage && parsedMessage['track-wallet']) {
-            if (parsedMessage['track-wallet'] === 'stop') {
-              client['track-wallet'] = null;
-            } else {
-              client['track-wallet'] = parsedMessage['track-wallet'];
-            }
-          }
-
           if (parsedMessage && parsedMessage['track-asset']) {
             if (/^[a-fA-F0-9]{64}$/.test(parsedMessage['track-asset'])) {
               client['track-asset'] = parsedMessage['track-asset'];
@@ -402,16 +387,6 @@ class WebsocketHandler {
             client['track-mempool'] = true;
           } else if (parsedMessage['track-mempool'] === false) {
             delete client['track-mempool'];
-          }
-
-          if (parsedMessage && parsedMessage['track-stratum'] != null) {
-            if (parsedMessage['track-stratum']) {
-              const sub = parsedMessage['track-stratum'];
-              client['track-stratum'] = sub;
-              response['stratumJobs'] = this.socketData['stratumJobs'];
-            } else {
-              client['track-stratum'] = false;
-            }
           }
 
           if (Object.keys(response).length) {
@@ -509,42 +484,6 @@ class WebsocketHandler {
     }
   }
 
-  handleAccelerationsChanged(accelerations: Record<string, Acceleration>): void {
-    if (!this.webSocketServers.length) {
-      throw new Error('No WebSocket.Server has been set');
-    }
-
-    const websocketAccelerationDelta = accelerationApi.getAccelerationDelta(this.accelerations, accelerations);
-    this.accelerations = accelerations;
-
-    if (!websocketAccelerationDelta.length) {
-      return;
-    }
-
-    // pre-compute acceleration delta
-    const accelerationUpdate = {
-      added: websocketAccelerationDelta.map(txid => accelerations[txid]).filter(acc => acc != null),
-      removed: websocketAccelerationDelta.filter(txid => !accelerations[txid]),
-    };
-
-    try {
-      const response = JSON.stringify({
-        accelerations: accelerationUpdate,
-      });
-
-      for (const server of this.webSocketServers) {
-        server.clients.forEach((client) => {
-          if (client.readyState !== WebSocket.OPEN) {
-            return;
-          }
-          client.send(response);
-        });
-      }
-    } catch (e) {
-      logger.debug(`Error sending acceleration update to websocket clients: ${e}`);
-    }
-  }
-
   handleReorg(): void {
     if (!this.webSocketServers.length) {
       throw new Error('No WebSocket.Server have been set');
@@ -581,25 +520,14 @@ class WebsocketHandler {
     }
   }
 
-  /**
-   *
-   * @param newMempool
-   * @param mempoolSize
-   * @param newTransactions  array of transactions added this mempool update.
-   * @param recentlyDeletedTransactions array of arrays of transactions removed in the last N mempool updates, most recent first.
-   * @param accelerationDelta
-   * @param candidates
-   */
   async $handleMempoolChange(newMempool: { [txid: string]: MempoolTransactionExtended }, mempoolSize: number,
-    newTransactions: MempoolTransactionExtended[], recentlyDeletedTransactions: MempoolTransactionExtended[][], accelerationDelta: string[],
+    newTransactions: MempoolTransactionExtended[], deletedTransactions: MempoolTransactionExtended[], accelerationDelta: string[],
     candidates?: GbtCandidates): Promise<void> {
     if (!this.webSocketServers.length) {
       throw new Error('No WebSocket.Server have been set');
     }
 
     this.printLogs();
-
-    const deletedTransactions = recentlyDeletedTransactions.length ? recentlyDeletedTransactions[0] : [];
 
     const transactionIds = (memPool.limitGBT && candidates) ? Object.keys(candidates?.txs || {}) : Object.keys(newMempool);
     let added = newTransactions;
@@ -610,18 +538,18 @@ class WebsocketHandler {
     }
 
     if (config.MEMPOOL.RUST_GBT) {
-      await mempoolBlocks.$rustUpdateBlockTemplates(transactionIds, newMempool, added, removed, candidates, true);
+      await mempoolBlocks.$rustUpdateBlockTemplates(transactionIds, newMempool, added, removed, candidates, config.MEMPOOL_SERVICES.ACCELERATIONS);
     } else {
-      await mempoolBlocks.$updateBlockTemplates(transactionIds, newMempool, added, removed, candidates, accelerationDelta, true, true);
+      await mempoolBlocks.$updateBlockTemplates(transactionIds, newMempool, added, removed, candidates, accelerationDelta, true, config.MEMPOOL_SERVICES.ACCELERATIONS);
     }
 
     const mBlocks = mempoolBlocks.getMempoolBlocks();
     const mBlockDeltas = mempoolBlocks.getMempoolBlockDeltas();
     const mempoolInfo = memPool.getMempoolInfo();
     const vBytesPerSecond = memPool.getVBytesPerSecond();
-    const rbfTransactions = Common.findRbfTransactions(newTransactions, recentlyDeletedTransactions.flat());
+    const rbfTransactions = Common.findRbfTransactions(newTransactions, deletedTransactions);
     const da = difficultyAdjustment.getDifficultyAdjustment();
-    const accelerations = accelerationApi.getAccelerations();
+    const accelerations = memPool.getAccelerations();
     memPool.handleRbfTransactions(rbfTransactions);
     const rbfChanges = rbfCache.getRbfChanges();
     let rbfReplacements;
@@ -650,7 +578,7 @@ class WebsocketHandler {
     const replacedTransactions: { replaced: string, by: TransactionExtended }[] = [];
     for (const tx of newTransactions) {
       if (rbfTransactions[tx.txid]) {
-        for (const replaced of rbfTransactions[tx.txid].replaced) {
+        for (const replaced of rbfTransactions[tx.txid]) {
           replacedTransactions.push({ replaced: replaced.txid, by: tx });
         }
       }
@@ -729,13 +657,10 @@ class WebsocketHandler {
     const addressCache = this.makeAddressCache(newTransactions);
     const removedAddressCache = this.makeAddressCache(deletedTransactions);
 
-    const websocketAccelerationDelta = accelerationApi.getAccelerationDelta(this.accelerations, accelerations);
-    this.accelerations = accelerations;
-
     // pre-compute acceleration delta
     const accelerationUpdate = {
-      added: websocketAccelerationDelta.map(txid => accelerations[txid]).filter(acc => acc != null),
-      removed: websocketAccelerationDelta.filter(txid => !accelerations[txid]),
+      added: accelerationDelta.map(txid => accelerations[txid]).filter(acc => acc != null),
+      removed: accelerationDelta.filter(txid => !accelerations[txid]),
     };
 
     // TODO - Fix indentation after PR is merged
@@ -897,13 +822,11 @@ class WebsocketHandler {
               ...mempoolTx.position,
               accelerated: mempoolTx.acceleration || undefined,
               acceleratedBy: mempoolTx.acceleratedBy || undefined,
-              acceleratedAt: mempoolTx.acceleratedAt || undefined,
-              feeDelta: mempoolTx.feeDelta || undefined,
             },
             accelerationPositions: memPool.getAccelerationPositions(mempoolTx.txid),
           };
           if (!mempoolTx.cpfpChecked && !mempoolTx.acceleration) {
-            calculateMempoolTxCpfp(mempoolTx, newMempool);
+            calculateCpfp(mempoolTx, newMempool);
           }
           if (mempoolTx.cpfpDirty) {
             positionData['cpfp'] = {
@@ -939,11 +862,9 @@ class WebsocketHandler {
               ...mempoolTx.position,
               accelerated: mempoolTx.acceleration || undefined,
               acceleratedBy: mempoolTx.acceleratedBy || undefined,
-              acceleratedAt: mempoolTx.acceleratedAt || undefined,
-              feeDelta: mempoolTx.feeDelta || undefined,
             };
             if (!mempoolTx.cpfpChecked) {
-              calculateMempoolTxCpfp(mempoolTx, newMempool);
+              calculateCpfp(mempoolTx, newMempool);
             }
             if (mempoolTx.cpfpDirty) {
               txInfo.cpfp = {
@@ -1008,42 +929,40 @@ class WebsocketHandler {
       throw new Error('No WebSocket.Server have been set');
     }
 
-    const blockTransactions = structuredClone(transactions);
-
     this.printLogs();
-    if (config.STATISTICS.ENABLED && config.DATABASE.ENABLED) {
-      await statistics.runStatistics();
-    }
+    await statistics.runStatistics();
 
     const _memPool = memPool.getMempool();
     const candidateTxs = await memPool.getMempoolCandidates();
     let candidates: GbtCandidates | undefined = (memPool.limitGBT && candidateTxs) ? { txs: candidateTxs, added: [], removed: [] } : undefined;
     let transactionIds: string[] = (memPool.limitGBT) ? Object.keys(candidates?.txs || {}) : Object.keys(_memPool);
 
-    if (config.DATABASE.ENABLED) {
-      const accelerations = Object.values(mempool.getAccelerations());
-      await accelerationRepository.$indexAccelerationsForBlock(block, accelerations, structuredClone(transactions));
-    }
+    const accelerations = Object.values(mempool.getAccelerations());
+    await accelerationRepository.$indexAccelerationsForBlock(block, accelerations, transactions);
 
     const rbfTransactions = Common.findMinedRbfTransactions(transactions, memPool.getSpendMap());
-    memPool.handleRbfTransactions(rbfTransactions);
+    memPool.handleMinedRbfTransactions(rbfTransactions);
     memPool.removeFromSpendMap(transactions);
 
     if (config.MEMPOOL.AUDIT && memPool.isInSync()) {
       let projectedBlocks;
       const auditMempool = _memPool;
-      const isAccelerated = accelerationApi.isAcceleratedBlock(block, Object.values(mempool.getAccelerations()));
+      const isAccelerated = config.MEMPOOL_SERVICES.ACCELERATIONS && accelerationApi.isAcceleratedBlock(block, Object.values(mempool.getAccelerations()));
 
-      if (config.MEMPOOL.RUST_GBT) {
-        const added = memPool.limitGBT ? (candidates?.added || []) : [];
-        const removed = memPool.limitGBT ? (candidates?.removed || []) : [];
-        projectedBlocks = await mempoolBlocks.$rustUpdateBlockTemplates(transactionIds, auditMempool, added, removed, candidates, isAccelerated, block.extras.pool.id);
+      if ((config.MEMPOOL_SERVICES.ACCELERATIONS)) {
+        if (config.MEMPOOL.RUST_GBT) {
+          const added = memPool.limitGBT ? (candidates?.added || []) : [];
+          const removed = memPool.limitGBT ? (candidates?.removed || []) : [];
+          projectedBlocks = await mempoolBlocks.$rustUpdateBlockTemplates(transactionIds, auditMempool, added, removed, candidates, isAccelerated, block.extras.pool.id);
+        } else {
+          projectedBlocks = await mempoolBlocks.$makeBlockTemplates(transactionIds, auditMempool, candidates, false, isAccelerated, block.extras.pool.id);
+        }
       } else {
-        projectedBlocks = await mempoolBlocks.$makeBlockTemplates(transactionIds, auditMempool, candidates, false, isAccelerated, block.extras.pool.id);
+        projectedBlocks = mempoolBlocks.getMempoolBlocksWithTransactions();
       }
 
       if (Common.indexingEnabled()) {
-        const { unseen, censored, added, prioritized, fresh, sigop, fullrbf, accelerated, score, similarity } = Audit.auditBlock(block.height, blockTransactions, projectedBlocks, auditMempool);
+        const { censored, added, prioritized, fresh, sigop, fullrbf, accelerated, score, similarity } = Audit.auditBlock(transactions, projectedBlocks, auditMempool);
         const matchRate = Math.round(score * 100 * 100) / 100;
 
         const stripped = projectedBlocks[0]?.transactions ? projectedBlocks[0].transactions : [];
@@ -1065,11 +984,9 @@ class WebsocketHandler {
         });
 
         BlocksAuditsRepository.$saveAudit({
-          version: 1,
           time: block.timestamp,
           height: block.height,
           hash: block.id,
-          unseenTxs: unseen,
           addedTxs: added,
           prioritizedTxs: prioritized,
           missingTxs: censored,
@@ -1093,16 +1010,6 @@ class WebsocketHandler {
       const mBlocks = mempoolBlocks.getMempoolBlocksWithTransactions();
       if (mBlocks?.length && mBlocks[0].transactions) {
         block.extras.similarity = Common.getSimilarity(mBlocks[0], transactions);
-      }
-    }
-
-    if (config.CORE_RPC.DEBUG_LOG_PATH && block.extras) {
-      const firstSeen = getRecentFirstSeen(block.id);
-      if (firstSeen) {
-        if (config.DATABASE.ENABLED) {
-          BlocksRepository.$saveFirstSeenTime(block.id, firstSeen);
-        }
-        block.extras.firstSeen = firstSeen;
       }
     }
 
@@ -1131,7 +1038,7 @@ class WebsocketHandler {
       const removed = memPool.limitGBT ? (candidates?.removed || []) : transactions;
       await mempoolBlocks.$rustUpdateBlockTemplates(transactionIds, _memPool, added, removed, candidates, true);
     } else {
-      await mempoolBlocks.$makeBlockTemplates(transactionIds, _memPool, candidates, true, true);
+      await mempoolBlocks.$makeBlockTemplates(transactionIds, _memPool, candidates, true, config.MEMPOOL_SERVICES.ACCELERATIONS);
     }
     const mBlocks = mempoolBlocks.getMempoolBlocks();
     const mBlockDeltas = mempoolBlocks.getMempoolBlockDeltas();
@@ -1179,9 +1086,6 @@ class WebsocketHandler {
       mined: transactions.map(tx => tx.txid),
       replaced: replacedTransactions,
     };
-
-    // check for wallet transactions
-    const walletTransactions = config.WALLETS.ENABLED ? walletApi.processBlock(block, transactions) : [];
 
     const responseCache = { ...this.socketData };
     function getCachedResponse(key, data): string {
@@ -1235,8 +1139,6 @@ class WebsocketHandler {
                 ...mempoolTx.position,
                 accelerated: mempoolTx.acceleration || undefined,
                 acceleratedBy: mempoolTx.acceleratedBy || undefined,
-                acceleratedAt: mempoolTx.acceleratedAt || undefined,
-                feeDelta: mempoolTx.feeDelta || undefined,
               },
               accelerationPositions: memPool.getAccelerationPositions(mempoolTx.txid),
             });
@@ -1258,8 +1160,6 @@ class WebsocketHandler {
                 },
                 accelerated: mempoolTx.acceleration || undefined,
                 acceleratedBy: mempoolTx.acceleratedBy || undefined,
-                acceleratedAt: mempoolTx.acceleratedAt || undefined,
-                feeDelta: mempoolTx.feeDelta || undefined,
               };
             }
           }
@@ -1387,44 +1287,20 @@ class WebsocketHandler {
         response['mempool-transactions'] = getCachedResponse('mempool-transactions', mempoolDelta);
       }
 
-      if (client['track-wallet']) {
-        const trackedWallet = client['track-wallet'];
-        response['wallet-transactions'] = getCachedResponse(`wallet-transactions-${trackedWallet}`, walletTransactions[trackedWallet] ?? {});
-      }
-
       if (Object.keys(response).length) {
         client.send(this.serializeResponse(response));
       }
     });
     }
 
-    if (config.STATISTICS.ENABLED && config.DATABASE.ENABLED) {
-      await statistics.runStatistics();
-    }
-  }
-
-  public handleNewStratumJob(job: StratumJob): void {
-    this.updateSocketDataFields({ 'stratumJobs': stratumApi.getJobs() });
-
-    for (const server of this.webSocketServers) {
-      server.clients.forEach((client) => {
-        if (client.readyState !== WebSocket.OPEN) {
-          return;
-        }
-        if (client['track-stratum'] && (client['track-stratum'] === 'all' || client['track-stratum'] === job.pool)) {
-          client.send(JSON.stringify({
-            'stratumJob': job
-        }));
-        }
-      });
-    }
+    await statistics.runStatistics();
   }
 
   // takes a dictionary of JSON serialized values
   // and zips it together into a valid JSON object
   private serializeResponse(response): string {
     return '{'
-        + Object.keys(response).filter(key => response[key] != null).map(key => `"${key}": ${response[key]}`).join(', ')
+        + Object.keys(response).map(key => `"${key}": ${response[key]}`).join(', ')
         + '}';
   }
 

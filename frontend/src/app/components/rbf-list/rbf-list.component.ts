@@ -2,13 +2,13 @@ import { Component, OnInit, ChangeDetectionStrategy, OnDestroy } from '@angular/
 import { ActivatedRoute, Router } from '@angular/router';
 import { BehaviorSubject, EMPTY, merge, Observable, Subscription } from 'rxjs';
 import { catchError, switchMap, tap } from 'rxjs/operators';
-import { WebsocketService } from '@app/services/websocket.service';
-import { RbfTree } from '@interfaces/node-api.interface';
-import { ApiService } from '@app/services/api.service';
-import { StateService } from '@app/services/state.service';
-import { SeoService } from '@app/services/seo.service';
-import { OpenGraphService } from '@app/services/opengraph.service';
-import { seoDescriptionNetwork } from '@app/shared/common.utils';
+import { WebsocketService } from '../../services/websocket.service';
+import { RbfTree } from '../../interfaces/node-api.interface';
+import { ApiService } from '../../services/api.service';
+import { StateService } from '../../services/state.service';
+import { SeoService } from '../../services/seo.service';
+import { OpenGraphService } from '../../services/opengraph.service';
+import { seoDescriptionNetwork } from '../../shared/common.utils';
 
 @Component({
   selector: 'app-rbf-list',
@@ -38,7 +38,6 @@ export class RbfList implements OnInit, OnDestroy {
       this.fullRbf = (fragment === 'fullrbf');
       this.websocketService.startTrackRbf(this.fullRbf ? 'fullRbf' : 'all');
       this.nextRbfSubject.next(null);
-      this.isLoading = true;
     });
 
     this.rbfTrees$ = merge(

@@ -1,9 +1,6 @@
 import config from '../../config';
 import { Application, Request, Response } from 'express';
 import channelsApi from './channels.api';
-import { handleError } from '../../utils/api';
-
-const TXID_REGEX = /^[a-f0-9]{64}$/i;
 
 class ChannelsRoutes {
   constructor() { }
@@ -25,7 +22,7 @@ class ChannelsRoutes {
       const channels = await channelsApi.$searchChannelsById(req.params.search);
       res.json(channels);
     } catch (e) {
-      handleError(req, res, 500, 'Failed to search channels by id');
+      res.status(500).send(e instanceof Error ? e.message : e);
     }
   }
 
@@ -41,7 +38,7 @@ class ChannelsRoutes {
       res.setHeader('Expires', new Date(Date.now() + 1000 * 60).toUTCString());
       res.json(channel);
     } catch (e) {
-      handleError(req, res, 500, 'Failed to get channel');
+      res.status(500).send(e instanceof Error ? e.message : e);
     }
   }
 
@@ -56,11 +53,11 @@ class ChannelsRoutes {
       const status: string = typeof req.query.status === 'string' ? req.query.status : '';
 
       if (index < -1) {
-        handleError(req, res, 400, 'Invalid index');
+        res.status(400).send('Invalid index');
         return;
       }
       if (['open', 'active', 'closed'].includes(status) === false) {
-        handleError(req, res, 400, 'Invalid status');
+        res.status(400).send('Invalid status');
         return;
       }
 
@@ -72,23 +69,20 @@ class ChannelsRoutes {
       res.header('X-Total-Count', channelsCount.toString());
       res.json(channels);
     } catch (e) {
-      handleError(req, res, 500, 'Failed to get channels for node');
+      res.status(500).send(e instanceof Error ? e.message : e);
     }
   }
 
   private async $getChannelsByTransactionIds(req: Request, res: Response): Promise<void> {
     try {
       if (!Array.isArray(req.query.txId)) {
-        handleError(req, res, 400, 'Not an array');
+        res.status(400).send('Not an array');
         return;
       }
       const txIds: string[] = [];
       for (const _txId in req.query.txId) {
         if (typeof req.query.txId[_txId] === 'string') {
-          const txid = req.query.txId[_txId].toString();
-          if (TXID_REGEX.test(txid)) {
-            txIds.push(txid);
-          }
+          txIds.push(req.query.txId[_txId].toString());
         }
       }
       const channels = await channelsApi.$getChannelsByTransactionId(txIds);
@@ -113,7 +107,7 @@ class ChannelsRoutes {
 
       res.json(result);
     } catch (e) {
-      handleError(req, res, 500, 'Failed to get channels by transaction ids');
+      res.status(500).send(e instanceof Error ? e.message : e);
     }
   }
 
@@ -125,7 +119,7 @@ class ChannelsRoutes {
       res.setHeader('Expires', new Date(Date.now() + 1000 * 60).toUTCString());
       res.json(channels);
     } catch (e) {
-      handleError(req, res, 500, 'Failed to get penalty closed channels');
+      res.status(500).send(e instanceof Error ? e.message : e);
     }
   }
 
@@ -138,7 +132,7 @@ class ChannelsRoutes {
       res.setHeader('Expires', new Date(Date.now() + 1000 * 60).toUTCString());
       res.json(channels);
     } catch (e) {
-      handleError(req, res, 500, 'Failed to get channel geodata');
+      res.status(500).send(e instanceof Error ? e.message : e);
     }
   }
 

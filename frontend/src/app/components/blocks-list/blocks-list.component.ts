@@ -2,14 +2,13 @@ import { Component, OnInit, ChangeDetectionStrategy, Input, ChangeDetectorRef, I
 import { ActivatedRoute, Router } from '@angular/router';
 import { BehaviorSubject, combineLatest, Observable, timer, of, Subscription } from 'rxjs';
 import { debounceTime, delayWhen, filter, map, retryWhen, scan, skip, switchMap, tap, throttleTime } from 'rxjs/operators';
-import { BlockExtended } from '@interfaces/node-api.interface';
-import { ApiService } from '@app/services/api.service';
-import { StateService } from '@app/services/state.service';
-import { WebsocketService } from '@app/services/websocket.service';
-import { SeoService } from '@app/services/seo.service';
-import { OpenGraphService } from '@app/services/opengraph.service';
-import { seoDescriptionNetwork } from '@app/shared/common.utils';
-import { RelativeUrlPipe } from '@app/shared/pipes/relative-url/relative-url.pipe';
+import { BlockExtended } from '../../interfaces/node-api.interface';
+import { ApiService } from '../../services/api.service';
+import { StateService } from '../../services/state.service';
+import { WebsocketService } from '../../services/websocket.service';
+import { SeoService } from '../../services/seo.service';
+import { OpenGraphService } from '../../services/opengraph.service';
+import { seoDescriptionNetwork } from '../../shared/common.utils';
 
 @Component({
   selector: 'app-blocks-list',
@@ -50,7 +49,6 @@ export class BlocksList implements OnInit {
     private ogService: OpenGraphService,
     private route: ActivatedRoute,
     private router: Router,
-    private relativeUrlPipe: RelativeUrlPipe,
     @Inject(LOCALE_ID) private locale: string,
   ) {
     this.isMempoolModule = this.stateService.env.BASE_MODULE === 'mempool';
@@ -75,29 +73,27 @@ export class BlocksList implements OnInit {
         this.seoService.setDescription($localize`:@@meta.description.bitcoin.blocks:See the most recent Bitcoin${seoDescriptionNetwork(this.stateService.network)} blocks along with basic stats such as block height, block reward, block size, and more.`);
       }
 
-      this.blocksCountInitializedSubscription = combineLatest([this.blocksCountInitialized$, this.route.params]).pipe(
+      this.blocksCountInitializedSubscription = combineLatest([this.blocksCountInitialized$, this.route.queryParams]).pipe(
         filter(([blocksCountInitialized, _]) => blocksCountInitialized),
         tap(([_, params]) => {
           this.page = +params['page'] || 1;
           this.page === 1 ? this.fromHeightSubject.next(undefined) : this.fromHeightSubject.next((this.blocksCount - 1) - (this.page - 1) * 15);
+          this.cd.markForCheck();
         })
       ).subscribe();
 
-      const prevKey = this.dir === 'ltr' ? 'ArrowLeft' : 'ArrowRight';
-      const nextKey = this.dir === 'ltr' ? 'ArrowRight' : 'ArrowLeft';
-
       this.keyNavigationSubscription = this.stateService.keyNavigation$
       .pipe(
-        filter((event) => event.key === prevKey || event.key === nextKey),
         tap((event) => {
+          this.isLoading = true;
+          const prevKey = this.dir === 'ltr' ? 'ArrowLeft' : 'ArrowRight';
+          const nextKey = this.dir === 'ltr' ? 'ArrowRight' : 'ArrowLeft';
           if (event.key === prevKey && this.page > 1) {
             this.page--;
-            this.isLoading = true;
             this.cd.markForCheck();
           }
           if (event.key === nextKey && this.page * 15 < this.blocksCount) {
             this.page++;
-            this.isLoading = true;
             this.cd.markForCheck();
           }
         }),
@@ -122,7 +118,6 @@ export class BlocksList implements OnInit {
                 if (this.blocksCount === undefined) {
                   this.blocksCount = blocks[0].height + 1;
                   this.blocksCountInitialized$.next(true);
-                  this.blocksCountInitialized$.complete();
                 }
                 this.isLoading = false;
                 this.lastBlockHeight = Math.max(...blocks.map(o => o.height));
@@ -184,7 +179,7 @@ export class BlocksList implements OnInit {
   }
 
   pageChange(page: number): void {
-    this.router.navigate([this.relativeUrlPipe.transform('/blocks/'), page]);
+    this.router.navigate([], { queryParams: { page: page } });
   }
 
   trackByBlock(index: number, block: BlockExtended): number {

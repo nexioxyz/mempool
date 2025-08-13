@@ -10,8 +10,6 @@ import config from './config';
 import auditReplicator from './replication/AuditReplication';
 import statisticsReplicator from './replication/StatisticsReplication';
 import AccelerationRepository from './repositories/AccelerationRepository';
-import BlocksAuditsRepository from './repositories/BlocksAuditsRepository';
-import BlocksRepository from './repositories/BlocksRepository';
 
 export interface CoreIndex {
   name: string;
@@ -184,7 +182,6 @@ class Indexer {
       }
 
       this.runSingleTask('blocksPrices');
-      await blocks.$indexCoinbaseAddresses();
       await mining.$indexDifficultyAdjustments();
       await mining.$generateNetworkHashrateHistory();
       await mining.$generatePoolHashrateHistory();
@@ -194,8 +191,6 @@ class Indexer {
       await auditReplicator.$sync();
       await statisticsReplicator.$sync();
       await AccelerationRepository.$indexPastAccelerations();
-      await BlocksAuditsRepository.$migrateAuditsV0toV1();
-      await BlocksRepository.$migrateBlocks();
       // do not wait for classify blocks to finish
       blocks.$classifyBlocks();
     } catch (e) {

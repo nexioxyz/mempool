@@ -1,14 +1,14 @@
-import { Env } from '@app/services/state.service';
+import { Env } from '../services/state.service';
 
 // all base58 characters
-export const BASE58_CHARS = `[a-km-zA-HJ-NP-Z1-9]`;
+const BASE58_CHARS = `[a-km-zA-HJ-NP-Z1-9]`;
 
 // all bech32 characters (after the separator)
-export const BECH32_CHARS_LW = `[ac-hj-np-z02-9]`;
+const BECH32_CHARS_LW = `[ac-hj-np-z02-9]`;
 const BECH32_CHARS_UP = `[AC-HJ-NP-Z02-9]`;
 
 // Hex characters
-export const HEX_CHARS = `[a-fA-F0-9]`;
+const HEX_CHARS = `[a-fA-F0-9]`;
 
 // A regex to say "A single 0 OR any number with no leading zeroes"
 // Capped at 9 digits so as to not be confused with lightning channel IDs (which are around 17 digits)
@@ -41,11 +41,11 @@ const ADDRESS_CHARS: {
     bech32: `(?:`
         + `bc1` // Starts with bc1
         + BECH32_CHARS_LW
-        + `{6,100}` // As per bech32, 6 char checksum is minimum
+        + `{20,100}` // As per bech32, 6 char checksum is minimum
       + `|`
         + `BC1` // All upper case version
         + BECH32_CHARS_UP
-        + `{6,100}`
+        + `{20,100}`
       + `)`,
   },
   testnet: {
@@ -55,11 +55,11 @@ const ADDRESS_CHARS: {
     bech32: `(?:`
         + `tb1` // Starts with tb1
         + BECH32_CHARS_LW
-        + `{6,100}` // As per bech32, 6 char checksum is minimum
+        + `{20,100}` // As per bech32, 6 char checksum is minimum
       + `|`
         + `TB1` // All upper case version
         + BECH32_CHARS_UP
-        + `{6,100}`
+        + `{20,100}`
       + `)`,
   },
   testnet4: {
@@ -69,11 +69,11 @@ const ADDRESS_CHARS: {
     bech32: `(?:`
         + `tb1` // Starts with tb1
         + BECH32_CHARS_LW
-        + `{6,100}` // As per bech32, 6 char checksum is minimum
+        + `{20,100}` // As per bech32, 6 char checksum is minimum
       + `|`
         + `TB1` // All upper case version
         + BECH32_CHARS_UP
-        + `{6,100}`
+        + `{20,100}`
       + `)`,
   },
   signet: {
@@ -83,11 +83,11 @@ const ADDRESS_CHARS: {
     bech32: `(?:`
         + `tb1` // Starts with tb1
         + BECH32_CHARS_LW
-        + `{6,100}`
+        + `{20,100}`
       + `|`
         + `TB1` // All upper case version
         + BECH32_CHARS_UP
-        + `{6,100}`
+        + `{20,100}`
       + `)`,
   },
   liquid: {
@@ -105,7 +105,7 @@ const ADDRESS_CHARS: {
           + `lq1`
         + `)`
         + BECH32_CHARS_LW // blech32 and bech32 are the same alphabet and protocol, different checksums.
-        + `{6,100}`
+        + `{20,100}`
       + `|`
         + `(?:` // Same as above but all upper case
           + `EX1`
@@ -113,7 +113,7 @@ const ADDRESS_CHARS: {
           + `LQ1`
         + `)`
         + BECH32_CHARS_UP
-        + `{6,100}`
+        + `{20,100}`
       + `)`,
   },
   liquidtestnet: {
@@ -127,7 +127,7 @@ const ADDRESS_CHARS: {
           + `tlq1` // TODO: does this exist?
         + `)`
         + BECH32_CHARS_LW // blech32 and bech32 are the same alphabet and protocol, different checksums.
-        + `{6,100}`
+        + `{20,100}`
       + `|`
         + `(?:` // Same as above but all upper case
           + `TEX1`
@@ -135,14 +135,14 @@ const ADDRESS_CHARS: {
           + `TLQ1`
         + `)`
         + BECH32_CHARS_UP
-        + `{6,100}`
+        + `{20,100}`
       + `)`,
   },
 }
 type RegexTypeNoAddrNoBlockHash = | `transaction` | `blockheight` | `date` | `timestamp`;
 export type RegexType = `address` | `blockhash` | RegexTypeNoAddrNoBlockHash;
 
-export const NETWORKS = [`mainnet`, `testnet4`, `testnet`, `signet`, `liquid`, `liquidtestnet`] as const;
+export const NETWORKS = [`testnet`, `testnet4`, `signet`, `liquid`, `liquidtestnet`, `mainnet`] as const;
 export type Network = typeof NETWORKS[number]; // Turn const array into union type
 
 export const ADDRESS_REGEXES: [RegExp, Network][] = NETWORKS
@@ -313,24 +313,20 @@ export function getRegex(type: RegexType, network?: Network): RegExp {
       }
       regex += `)`; // End the non-capturing group
       break;
-    // Match a date in the format YYYY-MM-DD (optional: HH:MM or HH:MM:SS)
+    // Match a date in the format YYYY-MM-DD (optional: HH:MM)
     // [Testing Order]: any order is fine
     case `date`:
       regex += `(?:`;                  // Start a non-capturing group
       regex += `${NUMBER_CHARS}{4}`;   // Exactly 4 digits
       regex += `[-/]`;                 // 1 instance of the symbol "-" or "/"
-      regex += `${NUMBER_CHARS}{1,2}`; // 1 or 2 digits
+      regex += `${NUMBER_CHARS}{1,2}`; // Exactly 4 digits
       regex += `[-/]`;                 // 1 instance of the symbol "-" or "/"
-      regex += `${NUMBER_CHARS}{1,2}`; // 1 or 2 digits
+      regex += `${NUMBER_CHARS}{1,2}`; // Exactly 4 digits
       regex += `(?:`;                  // Start a non-capturing group
       regex += ` `;                    // 1 instance of the symbol " "
-      regex += `${NUMBER_CHARS}{1,2}`; // 1 or 2 digits
+      regex += `${NUMBER_CHARS}{1,2}`; // Exactly 4 digits
       regex += `:`;                    // 1 instance of the symbol ":"
-      regex += `${NUMBER_CHARS}{1,2}`; // 1 or 2 digits
-      regex += `(?:`;                  // Start a non-capturing group for optional seconds
-      regex += `:`;                    // 1 instance of the symbol ":"
-      regex += `${NUMBER_CHARS}{1,2}`; // 1 or 2 digits
-      regex += `)?`;                   // End the non-capturing group
+      regex += `${NUMBER_CHARS}{1,2}`; // Exactly 4 digits
       regex += `)?`;                   // End the non-capturing group. This group appears 0 or 1 times
       regex += `)`;                    // End the non-capturing group
       break;

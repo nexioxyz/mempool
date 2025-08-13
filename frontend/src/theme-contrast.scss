@@ -18,9 +18,10 @@ $gray-700: $fg;
 
 $nav-tabs-link-active-bg: $active-bg;
 
-$primary: #007cfa;
+// $primary: #007cfa;
+$primary: #F4431C;
 $secondary: #272f4e;
-$tertiary: #6225b2;
+$tertiary: #F4431C;
 $success: #0aab2f;
 $info: #00ddff;
 
@@ -107,6 +108,6 @@ $dropdown-link-active-bg: $active-bg;
 
   --search-button: #4d2d77;
   --search-button-border: #472a6e;
-  --search-button-focus: #533180;
+  --search-button-focus: #cd3a18;
   --search-button-shadow: #7c58ab80;
 }

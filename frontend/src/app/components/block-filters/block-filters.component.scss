@@ -24,6 +24,7 @@
     display: flex;
     flex-direction: row;
     align-items: center;
+    float: right;
 
     &:hover, &:active {
       text-decoration: none;
@@ -31,18 +32,16 @@
   }
 
   .menu-toggle {
-    width: 3em;
-    min-width: 3em;
-    height: 1.8em;
+    width: 2em;
+    height: 2em;
     padding: 0px 1px;
     opacity: 0;
     cursor: pointer;
     color: white;
     background: none;
-    border: none;
+    border: solid 2px white;
     border-radius: 0.35em;
     pointer-events: all;
-    align-self: normal;
   }
 
   .filter-menu {
@@ -94,15 +93,6 @@
     }
   }
 
-  &.none-mode {
-    .filter-tag {
-      border: solid 1px var(--danger);
-      &.selected {
-        background-color: var(--danger);
-      }
-    }
-  }
-
   .btn-group {
     font-size: 0.9em;
     margin-right: 0.25em;
@@ -133,12 +123,6 @@
       border: solid 1px var(--success);
       &.active {
         background: var(--success);
-      }
-    }
-    &.red {
-      border: solid 1px var(--danger);
-      &.active {
-        background: var(--danger);
       }
     }
     &.yellow {

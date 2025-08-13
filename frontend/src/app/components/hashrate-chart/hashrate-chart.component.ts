@@ -1,19 +1,18 @@
 import { ChangeDetectionStrategy, Component, Inject, Input, LOCALE_ID, OnInit, HostBinding } from '@angular/core';
-import { echarts, EChartsOption } from '@app/graphs/echarts';
+import { echarts, EChartsOption } from '../../graphs/echarts';
 import { combineLatest, fromEvent, merge, Observable, of } from 'rxjs';
 import { map, mergeMap, share, startWith, switchMap, tap } from 'rxjs/operators';
-import { ApiService } from '@app/services/api.service';
-import { SeoService } from '@app/services/seo.service';
+import { ApiService } from '../../services/api.service';
+import { SeoService } from '../../services/seo.service';
 import { formatNumber } from '@angular/common';
 import { UntypedFormBuilder, UntypedFormGroup } from '@angular/forms';
-import { selectPowerOfTen } from '@app/bitcoin.utils';
-import { StorageService } from '@app/services/storage.service';
-import { MiningService } from '@app/services/mining.service';
-import { download } from '@app/shared/graphs.utils';
+import { selectPowerOfTen } from '../../bitcoin.utils';
+import { StorageService } from '../../services/storage.service';
+import { MiningService } from '../../services/mining.service';
+import { download } from '../../shared/graphs.utils';
 import { ActivatedRoute } from '@angular/router';
-import { StateService } from '@app/services/state.service';
-import { seoDescriptionNetwork } from '@app/shared/common.utils';
-import { AmountShortenerPipe } from '@app/shared/pipes/amount-shortener.pipe';
+import { StateService } from '../../services/state.service';
+import { seoDescriptionNetwork } from '../../shared/common.utils';
 
 @Component({
   selector: 'app-hashrate-chart',
@@ -24,7 +23,7 @@ import { AmountShortenerPipe } from '@app/shared/pipes/amount-shortener.pipe';
       position: absolute;
       top: 50%;
       left: calc(50% - 15px);
-      z-index: 99;
+      z-index: 100;
     }
   `],
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -61,7 +60,6 @@ export class HashrateChartComponent implements OnInit {
     private storageService: StorageService,
     private miningService: MiningService,
     private route: ActivatedRoute,
-    private amountShortenerPipe: AmountShortenerPipe,
     public stateService: StateService
   ) {
   }
@@ -252,19 +250,29 @@ export class HashrateChartComponent implements OnInit {
           let hashrateString = '';
           let difficultyString = '';
           let hashrateStringMA = '';
+          let hashratePowerOfTen: any = selectPowerOfTen(1);
 
           for (const tick of ticks) {
             if (tick.seriesIndex === 0) { // Hashrate
-              hashrateString = `${tick.marker} ${tick.seriesName}: ${this.amountShortenerPipe.transform(tick.data[1], 3, 'H/s', false, true)}<br>`;
+              let hashrate = tick.data[1];
+              hashratePowerOfTen = selectPowerOfTen(tick.data[1], 10);
+              hashrate = tick.data[1] / hashratePowerOfTen.divider;
+              hashrateString = `${tick.marker} ${tick.seriesName}: ${formatNumber(hashrate, this.locale, '1.0-0')} ${hashratePowerOfTen.unit}H/s<br>`;
             } else if (tick.seriesIndex === 1) { // Difficulty
+              let difficultyPowerOfTen = hashratePowerOfTen;
               let difficulty = tick.data[1];
               if (difficulty === null) {
                 difficultyString = `${tick.marker} ${tick.seriesName}: No data<br>`;
               } else {
-                difficultyString = `${tick.marker} ${tick.seriesName}: ${this.amountShortenerPipe.transform(tick.data[1], 2, '', false)}<br>`;
+                difficultyPowerOfTen = selectPowerOfTen(tick.data[1]);
+                difficulty = tick.data[1] / difficultyPowerOfTen.divider;
+                difficultyString = `${tick.marker} ${tick.seriesName}: ${formatNumber(difficulty, this.locale, '1.2-2')} ${difficultyPowerOfTen.unit}<br>`;
               }
             } else if (tick.seriesIndex === 2) { // Hashrate MA
-              hashrateStringMA = `${tick.marker} ${tick.seriesName}: ${this.amountShortenerPipe.transform(tick.data[1], 3, 'H/s', false, true)}<br>`;
+              let hashrate = tick.data[1];
+              hashratePowerOfTen = selectPowerOfTen(tick.data[1], 10);
+              hashrate = tick.data[1] / hashratePowerOfTen.divider;
+              hashrateStringMA = `${tick.marker} ${tick.seriesName}: ${formatNumber(hashrate, this.locale, '1.0-0')} ${hashratePowerOfTen.unit}H/s`;
             }
           }
 
@@ -338,7 +346,9 @@ export class HashrateChartComponent implements OnInit {
           axisLabel: {
             color: 'rgb(110, 112, 121)',
             formatter: (val): string => {
-              return this.amountShortenerPipe.transform(val, 3, 'H/s', false, true).toString();
+              const selectedPowerOfTen: any = selectPowerOfTen(val);
+              const newVal = Math.round(val / selectedPowerOfTen.divider);
+              return `${newVal} ${selectedPowerOfTen.unit}H/s`;
             },
             showMinLabel: false,
             showMaxLabel: false,
@@ -354,19 +364,15 @@ export class HashrateChartComponent implements OnInit {
         {
           type: 'value',
           position: 'right',
-          min: (value) => {
+          min: (_) => {
             const firstYAxisMin = this.chartInstance.getModel().getComponent('yAxis', 0).axis.scale.getExtent()[0];
-            if (firstYAxisMin === Infinity) {
-              return value.min;
-            }
             const selectedPowerOfTen: any = selectPowerOfTen(firstYAxisMin);
             const newMin = Math.floor(firstYAxisMin / selectedPowerOfTen.divider / 10)
             return 600 / 2 ** 32 * newMin * selectedPowerOfTen.divider * 10;
           },
-          max: (value) => {
+          max: (_) => {
             const firstYAxisMax = this.chartInstance.getModel().getComponent('yAxis', 0).axis.scale.getExtent()[1];
-            const scaledMax = 600 / 2 ** 32 * firstYAxisMax;
-            return Math.max(scaledMax, value.max);
+            return 600 / 2 ** 32 * firstYAxisMax;
           },
           axisLabel: {
             color: 'rgb(110, 112, 121)',
@@ -374,7 +380,9 @@ export class HashrateChartComponent implements OnInit {
               if (this.stateService.network === 'signet') {
                 return `${val}`;
               }
-              return this.amountShortenerPipe.transform(val, 3, '', false, true).toString();
+              const selectedPowerOfTen: any = selectPowerOfTen(val);
+              const newVal = Math.round(val / selectedPowerOfTen.divider);
+              return `${newVal} ${selectedPowerOfTen.unit}`;
             },
             showMinLabel: false,
             showMaxLabel: false,

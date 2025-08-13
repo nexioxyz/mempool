@@ -1,10 +1,8 @@
 import { Component, ElementRef, HostListener, OnInit, OnDestroy, ViewChild, Input, ChangeDetectorRef, ChangeDetectionStrategy, AfterViewChecked } from '@angular/core';
 import { Subscription } from 'rxjs';
-import { MarkBlockState, StateService } from '@app/services/state.service';
-import { specialBlocks } from '@app/app.constants';
-import { BlockExtended } from '@interfaces/node-api.interface';
-import { Router, ActivatedRoute } from '@angular/router';
-import { handleDemoRedirect } from '@app/shared/common.utils';
+import { MarkBlockState, StateService } from '../../services/state.service';
+import { specialBlocks } from '../../app.constants';
+import { BlockExtended } from '../../interfaces/node-api.interface';
 
 @Component({
   selector: 'app-start',
@@ -63,8 +61,6 @@ export class StartComponent implements OnInit, AfterViewChecked, OnDestroy {
   constructor(
     public stateService: StateService,
     private cd: ChangeDetectorRef,
-    private router: Router,
-    private route: ActivatedRoute
   ) {
     this.isiOS = ['iPhone','iPod','iPad'].includes((navigator as any)?.userAgentData?.platform || navigator.platform);
     if (this.stateService.network === '') {
@@ -73,8 +69,6 @@ export class StartComponent implements OnInit, AfterViewChecked, OnDestroy {
   }
 
   ngOnInit() {
-    handleDemoRedirect(this.route, this.router);
-
     this.firstPageWidth = 40 + (this.blockWidth * this.dynamicBlocksAmount);
     this.blockCounterSubscription = this.stateService.blocks$.subscribe((blocks) => {
       this.blockCount = blocks.length;
@@ -194,16 +188,14 @@ export class StartComponent implements OnInit, AfterViewChecked, OnDestroy {
   applyScrollLeft(): void {
     if (this.blockchainContainer?.nativeElement?.scrollWidth) {
       let lastScrollLeft = null;
-      if (!this.timeLtr) {
-        while (this.scrollLeft < 0 && this.shiftPagesForward() && lastScrollLeft !== this.scrollLeft) {
-          lastScrollLeft = this.scrollLeft;
-          this.scrollLeft += this.pageWidth;
-        }
-        lastScrollLeft = null;
-        while (this.scrollLeft > this.blockchainContainer.nativeElement.scrollWidth && this.shiftPagesBack() && lastScrollLeft !== this.scrollLeft) {
-          lastScrollLeft = this.scrollLeft;
-          this.scrollLeft -= this.pageWidth;
-        }
+      while (this.scrollLeft < 0 && this.shiftPagesForward() && lastScrollLeft !== this.scrollLeft) {
+        lastScrollLeft = this.scrollLeft;
+        this.scrollLeft += this.pageWidth;
+      }
+      lastScrollLeft = null;
+      while (this.scrollLeft > this.blockchainContainer.nativeElement.scrollWidth && this.shiftPagesBack() && lastScrollLeft !== this.scrollLeft) {
+        lastScrollLeft = this.scrollLeft;
+        this.scrollLeft -= this.pageWidth;
       }
       this.blockchainContainer.nativeElement.scrollLeft = this.scrollLeft;
     }
@@ -242,7 +234,7 @@ export class StartComponent implements OnInit, AfterViewChecked, OnDestroy {
     this.minScrollWidth = 40 + (8 * this.blockWidth) + (this.pageWidth * 2);
 
     if (firstVisibleBlock != null) {
-      this.scrollToBlock(firstVisibleBlock, offset + (this.isMobile ? this.blockWidth : 0));
+      this.scrollToBlock(firstVisibleBlock, offset);
     } else {
       this.updatePages();
     }

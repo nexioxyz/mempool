@@ -1,7 +1,7 @@
 import { ChangeDetectionStrategy, Component, Input, OnInit } from '@angular/core';
 import { combineLatest, Observable } from 'rxjs';
 import { map } from 'rxjs/operators';
-import { StateService } from '@app/services/state.service';
+import { StateService } from '../../services/state.service';
 
 interface EpochProgress {
   base: string;
@@ -77,7 +77,7 @@ export class DifficultyMiningComponent implements OnInit {
           base: `${da.progressPercent.toFixed(2)}%`,
           change: da.difficultyChange,
           progress: da.progressPercent,
-          remainingBlocks: da.remainingBlocks,
+          remainingBlocks: da.remainingBlocks - 1,
           colorAdjustments,
           colorPreviousAdjustments,
           newDifficultyHeight: da.nextRetargetHeight,

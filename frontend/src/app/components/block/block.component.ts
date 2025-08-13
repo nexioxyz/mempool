@@ -1,23 +1,22 @@
 import { Component, OnInit, OnDestroy, ViewChildren, QueryList, ChangeDetectorRef } from '@angular/core';
 import { Location } from '@angular/common';
-import { ActivatedRoute, ParamMap, Params, Router } from '@angular/router';
-import { ElectrsApiService } from '@app/services/electrs-api.service';
-import { switchMap, tap, throttleTime, catchError, map, shareReplay, startWith, filter, take } from 'rxjs/operators';
+import { ActivatedRoute, ParamMap, Router } from '@angular/router';
+import { ElectrsApiService } from '../../services/electrs-api.service';
+import { switchMap, tap, throttleTime, catchError, map, shareReplay, startWith, filter } from 'rxjs/operators';
 import { Observable, of, Subscription, asyncScheduler, EMPTY, combineLatest, forkJoin } from 'rxjs';
-import { StateService } from '@app/services/state.service';
-import { SeoService } from '@app/services/seo.service';
-import { WebsocketService } from '@app/services/websocket.service';
-import { RelativeUrlPipe } from '@app/shared/pipes/relative-url/relative-url.pipe';
-import { Acceleration, BlockAudit, BlockExtended, TransactionStripped } from '@interfaces/node-api.interface';
-import { ApiService } from '@app/services/api.service';
-import { BlockOverviewGraphComponent } from '@components/block-overview-graph/block-overview-graph.component';
-import { detectWebGL } from '@app/shared/graphs.utils';
-import { seoDescriptionNetwork } from '@app/shared/common.utils';
-import { PriceService, Price } from '@app/services/price.service';
-import { CacheService } from '@app/services/cache.service';
-import { ServicesApiServices } from '@app/services/services-api.service';
-import { PreloadService } from '@app/services/preload.service';
-import { identifyPrioritizedTransactions } from '@app/shared/transaction.utils';
+import { StateService } from '../../services/state.service';
+import { SeoService } from '../../services/seo.service';
+import { WebsocketService } from '../../services/websocket.service';
+import { RelativeUrlPipe } from '../../shared/pipes/relative-url/relative-url.pipe';
+import { BlockAudit, BlockExtended, TransactionStripped } from '../../interfaces/node-api.interface';
+import { ApiService } from '../../services/api.service';
+import { BlockOverviewGraphComponent } from '../../components/block-overview-graph/block-overview-graph.component';
+import { detectWebGL } from '../../shared/graphs.utils';
+import { seoDescriptionNetwork } from '../../shared/common.utils';
+import { PriceService, Price } from '../../services/price.service';
+import { CacheService } from '../../services/cache.service';
+import { ServicesApiServices } from '../../services/services-api.service';
+import { PreloadService } from '../../services/preload.service';
 
 @Component({
   selector: 'app-block',
@@ -45,7 +44,6 @@ export class BlockComponent implements OnInit, OnDestroy {
   latestBlocks: BlockExtended[] = [];
   oobFees: number = 0;
   strippedTransactions: TransactionStripped[];
-  accelerations: Acceleration[];
   overviewTransitionDirection: string;
   isLoadingOverview = true;
   error: any;
@@ -68,10 +66,8 @@ export class BlockComponent implements OnInit, OnDestroy {
   paginationMaxSize = window.matchMedia('(max-width: 670px)').matches ? 3 : 5;
   numUnexpected: number = 0;
   mode: 'projected' | 'actual' = 'projected';
-  currentQueryParams: Params;
 
   overviewSubscription: Subscription;
-  accelerationsSubscription: Subscription;
   keyNavigationSubscription: Subscription;
   blocksSubscription: Subscription;
   cacheBlocksSubscription: Subscription;
@@ -81,8 +77,8 @@ export class BlockComponent implements OnInit, OnDestroy {
   timeLtr: boolean;
   childChangeSubscription: Subscription;
   auditPrefSubscription: Subscription;
-  isAuditEnabledSubscription: Subscription;
   oobSubscription: Subscription;
+  
   priceSubscription: Subscription;
   blockConversion: Price;
 
@@ -119,7 +115,7 @@ export class BlockComponent implements OnInit, OnDestroy {
     this.setAuditAvailable(this.auditSupported);
 
     if (this.auditSupported) {
-      this.isAuditEnabledSubscription = this.isAuditEnabledFromParam().subscribe(auditParam => {
+      this.isAuditEnabledFromParam().subscribe(auditParam => {
         if (this.auditParamEnabled) {
           this.auditModeEnabled = auditParam;
         } else {
@@ -187,9 +183,6 @@ export class BlockComponent implements OnInit, OnDestroy {
         } else {
           this.isLoadingBlock = true;
           this.isLoadingOverview = true;
-          this.strippedTransactions = undefined;
-          this.blockAudit = undefined;
-          this.accelerations = undefined;
 
           let blockInCache: BlockExtended;
           if (isBlockHeight) {
@@ -282,7 +275,7 @@ export class BlockComponent implements OnInit, OnDestroy {
         }
       }),
       throttleTime(300, asyncScheduler, { leading: true, trailing: true }),
-      shareReplay({ bufferSize: 1, refCount: true })
+      shareReplay(1)
     );
 
     this.overviewSubscription = this.block$.pipe(
@@ -301,36 +294,158 @@ export class BlockComponent implements OnInit, OnDestroy {
                 this.overviewError = err;
                 return of(null);
               })
-            )
+            ),
+          this.stateService.env.ACCELERATOR === true && block.height > 819500
+            ? this.servicesApiService.getAccelerationHistory$({ blockHeight: block.height })
+              .pipe(catchError(() => {
+                return of([]);
+              }))
+            : of([])
         ]);
       })
     )
-    .subscribe(([transactions, blockAudit]) => {
+    .subscribe(([transactions, blockAudit, accelerations]) => {
       if (transactions) {
         this.strippedTransactions = transactions;
       } else {
         this.strippedTransactions = [];
       }
-      this.blockAudit = blockAudit;
 
-      this.setupBlockAudit();
-      this.isLoadingOverview = false;
-    });
-
-    this.accelerationsSubscription = this.block$.pipe(
-      switchMap((block) => {
-        return this.stateService.env.ACCELERATOR === true && block.height > 819500
-          ? this.servicesApiService.getAllAccelerationHistory$({ blockHeight: block.height })
-            .pipe(catchError(() => {
-              return of([]);
-            }))
-          : of([]);
-      })
-    ).subscribe((accelerations) => {
-      this.accelerations = accelerations;
-      if (accelerations.length && this.strippedTransactions) { // Don't call setupBlockAudit if we don't have transactions yet; it will be called later in overviewSubscription
-        this.setupBlockAudit();
+      const acceleratedInBlock = {};
+      for (const acc of accelerations) {
+        if (acc.pools?.some(pool => pool === this.block?.extras?.pool.id || pool?.['pool_unique_id'] === this.block?.extras?.pool.id)) {
+          acceleratedInBlock[acc.txid] = acc;
+        }
       }
+      for (const tx of transactions) {
+        if (acceleratedInBlock[tx.txid]) {
+          tx.acc = true;
+          const acceleration = acceleratedInBlock[tx.txid];
+          const boostCost = acceleration.boostCost || acceleration.bidBoost;
+          const acceleratedFeeRate = Math.max(acceleration.effectiveFee, acceleration.effectiveFee + boostCost) / acceleration.effectiveVsize;
+          if (acceleratedFeeRate > tx.rate) {
+            tx.rate = acceleratedFeeRate;
+          }
+        } else {
+          tx.acc = false;
+        }
+      }
+
+      this.blockAudit = null;
+      if (transactions && blockAudit) {
+        const inTemplate = {};
+        const inBlock = {};
+        const isAdded = {};
+        const isPrioritized = {};
+        const isCensored = {};
+        const isMissing = {};
+        const isSelected = {};
+        const isFresh = {};
+        const isSigop = {};
+        const isRbf = {};
+        const isAccelerated = {};
+        this.numMissing = 0;
+        this.numUnexpected = 0;
+
+        if (blockAudit?.template) {
+          for (const tx of blockAudit.template) {
+            inTemplate[tx.txid] = true;
+            if (tx.acc) {
+              isAccelerated[tx.txid] = true;
+            }
+          }
+          for (const tx of transactions) {
+            inBlock[tx.txid] = true;
+          }
+          for (const txid of blockAudit.addedTxs) {
+            isAdded[txid] = true;
+          }
+          for (const txid of blockAudit.prioritizedTxs || []) {
+            isPrioritized[txid] = true;
+          }
+          for (const txid of blockAudit.missingTxs) {
+            isCensored[txid] = true;
+          }
+          for (const txid of blockAudit.freshTxs || []) {
+            isFresh[txid] = true;
+          }
+          for (const txid of blockAudit.sigopTxs || []) {
+            isSigop[txid] = true;
+          }
+          for (const txid of blockAudit.fullrbfTxs || []) {
+            isRbf[txid] = true;
+          }
+          for (const txid of blockAudit.acceleratedTxs || []) {
+            isAccelerated[txid] = true;
+          }
+          // set transaction statuses
+          for (const tx of blockAudit.template) {
+            tx.context = 'projected';
+            if (isCensored[tx.txid]) {
+              tx.status = 'censored';
+            } else if (inBlock[tx.txid]) {
+              tx.status = 'found';
+            } else {
+              if (isFresh[tx.txid]) {
+                if (tx.rate - (tx.fee / tx.vsize) >= 0.1) {
+                  tx.status = 'freshcpfp';
+                } else {
+                  tx.status = 'fresh';
+                }
+              } else if (isSigop[tx.txid]) {
+                tx.status = 'sigop';
+              } else if (isRbf[tx.txid]) {
+                tx.status = 'rbf';
+              } else {
+                tx.status = 'missing';
+              }
+              isMissing[tx.txid] = true;
+              this.numMissing++;
+            }
+            if (isAccelerated[tx.txid]) {
+              tx.status = 'accelerated';
+            }
+          }
+          for (const [index, tx] of transactions.entries()) {
+            tx.context = 'actual';
+            if (index === 0) {
+              tx.status = null;
+            } else if (isAdded[tx.txid]) {
+              tx.status = 'added';
+            } else if (isPrioritized[tx.txid]) {
+              tx.status = 'prioritized';
+            } else if (inTemplate[tx.txid]) {
+              tx.status = 'found';
+            } else if (isRbf[tx.txid]) {
+              tx.status = 'rbf';
+            } else {
+              tx.status = 'selected';
+              isSelected[tx.txid] = true;
+              this.numUnexpected++;
+            }
+            if (isAccelerated[tx.txid]) {
+              tx.status = 'accelerated';
+            }
+          }
+          for (const tx of transactions) {
+            inBlock[tx.txid] = true;
+          }
+
+          blockAudit.feeDelta = blockAudit.expectedFees > 0 ? (blockAudit.expectedFees - (this.block?.extras.totalFees + this.oobFees)) / blockAudit.expectedFees : 0;
+          blockAudit.weightDelta = blockAudit.expectedWeight > 0 ? (blockAudit.expectedWeight - this.block?.weight) / blockAudit.expectedWeight : 0;
+          blockAudit.txDelta = blockAudit.template.length > 0 ? (blockAudit.template.length - this.block?.tx_count) / blockAudit.template.length : 0;
+          this.blockAudit = blockAudit;
+          this.setAuditAvailable(true);
+        } else {
+          this.setAuditAvailable(false);
+        }
+      } else {
+        this.setAuditAvailable(false);
+      }
+
+      this.isLoadingOverview = false;
+      this.setupBlockGraphs();
+      this.cd.markForCheck();
     });
 
     this.oobSubscription = this.block$.pipe(
@@ -364,7 +479,6 @@ export class BlockComponent implements OnInit, OnDestroy {
       .subscribe((network) => this.network = network);
 
     this.queryParamsSubscription = this.route.queryParams.subscribe((params) => {
-      this.currentQueryParams = params;
       if (params.showDetails === 'true') {
         this.showDetails = true;
       } else {
@@ -416,7 +530,6 @@ export class BlockComponent implements OnInit, OnDestroy {
   ngOnDestroy(): void {
     this.stateService.markBlock$.next({});
     this.overviewSubscription?.unsubscribe();
-    this.accelerationsSubscription?.unsubscribe();
     this.keyNavigationSubscription?.unsubscribe();
     this.blocksSubscription?.unsubscribe();
     this.cacheBlocksSubscription?.unsubscribe();
@@ -424,16 +537,8 @@ export class BlockComponent implements OnInit, OnDestroy {
     this.queryParamsSubscription?.unsubscribe();
     this.timeLtrSubscription?.unsubscribe();
     this.childChangeSubscription?.unsubscribe();
-    this.auditPrefSubscription?.unsubscribe();
-    this.isAuditEnabledSubscription?.unsubscribe();
-    this.oobSubscription?.unsubscribe();
     this.priceSubscription?.unsubscribe();
-    this.blockGraphProjected.forEach(graph => {
-      graph.destroy();
-    });
-    this.blockGraphActual.forEach(graph => {
-      graph.destroy();
-    });
+    this.oobSubscription?.unsubscribe();
   }
 
   // TODO - Refactor this.fees/this.reward for liquid because it is not
@@ -504,183 +609,6 @@ export class BlockComponent implements OnInit, OnDestroy {
     }
   }
 
-  setupBlockAudit(): void {
-    const transactions = this.strippedTransactions || [];
-    const blockAudit = this.blockAudit;
-    const accelerations = this.accelerations || [];
-
-    const acceleratedInBlock = {};
-    for (const acc of accelerations) {
-      if (acc.pools?.some(pool => pool === this.block?.extras?.pool.id)) {
-        acceleratedInBlock[acc.txid] = acc;
-      }
-    }
-
-    for (const tx of transactions) {
-      if (acceleratedInBlock[tx.txid]) {
-        tx.acc = true;
-        const acceleration = acceleratedInBlock[tx.txid];
-        const boostCost = acceleration.boostCost || acceleration.bidBoost;
-        const acceleratedFeeRate = Math.max(acceleration.effectiveFee, acceleration.effectiveFee + boostCost) / acceleration.effectiveVsize;
-        if (acceleratedFeeRate > tx.rate) {
-          tx.rate = acceleratedFeeRate;
-        }
-      } else {
-        tx.acc = false;
-      }
-    }
-
-    if (transactions && blockAudit) {
-      const inTemplate = {};
-      const inBlock = {};
-      const isUnseen = {};
-      const isAdded = {};
-      const isPrioritized = {};
-      const isDeprioritized = {};
-      const isCensored = {};
-      const isMissing = {};
-      const isSelected = {};
-      const isFresh = {};
-      const isSigop = {};
-      const isRbf = {};
-      const isAccelerated = {};
-      this.numMissing = 0;
-      this.numUnexpected = 0;
-
-      if (blockAudit?.template) {
-        // augment with locally calculated *de*prioritized transactions if possible
-        const { prioritized, deprioritized } = identifyPrioritizedTransactions(transactions);
-        // but if the local calculation produces returns unexpected results, don't use it
-        let useLocalDeprioritized = deprioritized.length < (transactions.length * 0.1);
-        for (const tx of prioritized) {
-          if (!isPrioritized[tx] && !isAccelerated[tx]) {
-            useLocalDeprioritized = false;
-            break;
-          }
-        }
-
-        for (const tx of blockAudit.template) {
-          inTemplate[tx.txid] = true;
-          if (tx.acc) {
-            isAccelerated[tx.txid] = true;
-          }
-        }
-        for (const tx of transactions) {
-          inBlock[tx.txid] = true;
-        }
-        for (const txid of blockAudit.unseenTxs || []) {
-          isUnseen[txid] = true;
-        }
-        for (const txid of blockAudit.addedTxs) {
-          isAdded[txid] = true;
-        }
-        for (const txid of blockAudit.prioritizedTxs) {
-          isPrioritized[txid] = true;
-        }
-        if (useLocalDeprioritized) {
-          for (const txid of deprioritized || []) {
-            isDeprioritized[txid] = true;
-          }
-        }
-        for (const txid of blockAudit.missingTxs) {
-          isCensored[txid] = true;
-        }
-        for (const txid of blockAudit.freshTxs || []) {
-          isFresh[txid] = true;
-        }
-        for (const txid of blockAudit.sigopTxs || []) {
-          isSigop[txid] = true;
-        }
-        for (const txid of blockAudit.fullrbfTxs || []) {
-          isRbf[txid] = true;
-        }
-        for (const txid of blockAudit.acceleratedTxs || []) {
-          isAccelerated[txid] = true;
-        }
-        // set transaction statuses
-        for (const tx of blockAudit.template) {
-          tx.context = 'projected';
-          if (isCensored[tx.txid] && tx.rate >= 1) {
-            tx.status = 'censored';
-          } else if (inBlock[tx.txid]) {
-            tx.status = 'found';
-          } else {
-            if (isFresh[tx.txid]) {
-              if (tx.rate - (tx.fee / tx.vsize) >= 0.1) {
-                tx.status = 'freshcpfp';
-              } else {
-                tx.status = 'fresh';
-              }
-            } else if (isSigop[tx.txid]) {
-              tx.status = 'sigop';
-            } else if (isRbf[tx.txid]) {
-              tx.status = 'rbf';
-            } else {
-              tx.status = 'missing';
-            }
-            isMissing[tx.txid] = true;
-            this.numMissing++;
-          }
-          if (isAccelerated[tx.txid]) {
-            tx.status = 'accelerated';
-          }
-        }
-        let anySeen = false;
-        for (let index = transactions.length - 1; index >= 0; index--) {
-          const tx = transactions[index];
-          tx.context = 'actual';
-          if (index === 0) {
-            tx.status = null;
-          } else if (isPrioritized[tx.txid]) {
-            if (isAdded[tx.txid] || (blockAudit.version > 0 && isUnseen[tx.txid])) {
-              tx.status = 'added_prioritized';
-            } else {
-              tx.status = 'prioritized';
-            }
-          } else if (isDeprioritized[tx.txid]) {
-            if (isAdded[tx.txid] || (blockAudit.version > 0 && isUnseen[tx.txid])) {
-              tx.status = 'added_deprioritized';
-            } else {
-              tx.status = 'deprioritized';
-            }
-          } else if (isAdded[tx.txid] && (blockAudit.version === 0 || isUnseen[tx.txid])) {
-            tx.status = 'added';
-          } else if (inTemplate[tx.txid]) {
-            anySeen = true;
-            tx.status = 'found';
-          } else if (isRbf[tx.txid]) {
-            tx.status = 'rbf';
-          } else if (isUnseen[tx.txid] && anySeen) {
-            tx.status = 'added';
-          } else {
-            tx.status = 'selected';
-            isSelected[tx.txid] = true;
-            this.numUnexpected++;
-          }
-          if (isAccelerated[tx.txid]) {
-            tx.status = 'accelerated';
-          }
-        }
-        for (const tx of transactions) {
-          inBlock[tx.txid] = true;
-        }
-
-        blockAudit.feeDelta = blockAudit.expectedFees > 0 ? (blockAudit.expectedFees - (this.block?.extras.totalFees + this.oobFees)) / blockAudit.expectedFees : 0;
-        blockAudit.weightDelta = blockAudit.expectedWeight > 0 ? (blockAudit.expectedWeight - this.block?.weight) / blockAudit.expectedWeight : 0;
-        blockAudit.txDelta = blockAudit.template.length > 0 ? (blockAudit.template.length - this.block?.tx_count) / blockAudit.template.length : 0;
-        this.blockAudit = blockAudit;
-        this.setAuditAvailable(true);
-      } else {
-        this.setAuditAvailable(false);
-      }
-    } else {
-      this.setAuditAvailable(false);
-    }
-
-    this.setupBlockGraphs();
-    this.cd.markForCheck();
-  }
-
   setupBlockGraphs(): void {
     if (this.blockAudit || this.strippedTransactions) {
       this.blockGraphProjected.forEach(graph => {
@@ -744,18 +672,19 @@ export class BlockComponent implements OnInit, OnDestroy {
   toggleAuditMode(): void {
     this.stateService.hideAudit.next(this.auditModeEnabled);
 
-    const queryParams = { ...this.currentQueryParams };
-    delete queryParams['audit'];
+    this.route.queryParams.subscribe(params => {
+      const queryParams = { ...params };
+      delete queryParams['audit'];
 
-    let newUrl = this.router.url.split('?')[0];
-    const queryString = new URLSearchParams(queryParams).toString();
-    if (queryString) {
-      newUrl += '?' + queryString;
-    }
-    this.location.replaceState(newUrl);
+      let newUrl = this.router.url.split('?')[0];
+      const queryString = new URLSearchParams(queryParams).toString();
+      if (queryString) {
+        newUrl += '?' + queryString;
+      }
+  
+      this.location.replaceState(newUrl);
+    });
 
-    // avoid duplicate subscriptions
-    this.auditPrefSubscription?.unsubscribe();
     this.auditPrefSubscription = this.stateService.hideAudit.subscribe((hide) => {
       this.auditModeEnabled = !hide;
       this.showAudit = this.auditAvailable && this.auditModeEnabled;
@@ -772,7 +701,7 @@ export class BlockComponent implements OnInit, OnDestroy {
     return this.route.queryParams.pipe(
       map(params => {
         this.auditParamEnabled = 'audit' in params;
-
+        
         return this.auditParamEnabled ? !(params['audit'] === 'false') : true;
       })
     );

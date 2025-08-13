@@ -1,19 +1,19 @@
 import { ChangeDetectionStrategy, ChangeDetectorRef, Component, HostListener, Inject, Input, LOCALE_ID, NgZone, OnInit } from '@angular/core';
-import { EChartsOption } from '@app/graphs/echarts';
+import { EChartsOption } from '../../graphs/echarts';
 import { Observable } from 'rxjs';
 import { catchError, map, share, startWith, switchMap, tap } from 'rxjs/operators';
-import { ApiService } from '@app/services/api.service';
-import { SeoService } from '@app/services/seo.service';
+import { ApiService } from '../../services/api.service';
+import { SeoService } from '../../services/seo.service';
 import { formatNumber } from '@angular/common';
 import { UntypedFormBuilder, UntypedFormGroup } from '@angular/forms';
-import { download, formatterXAxis } from '@app/shared/graphs.utils';
+import { download, formatterXAxis } from '../../shared/graphs.utils';
 import { ActivatedRoute, Router } from '@angular/router';
-import { FiatShortenerPipe } from '@app/shared/pipes/fiat-shortener.pipe';
-import { FiatCurrencyPipe } from '@app/shared/pipes/fiat-currency.pipe';
-import { StateService } from '@app/services/state.service';
-import { MiningService } from '@app/services/mining.service';
-import { StorageService } from '@app/services/storage.service';
-import { RelativeUrlPipe } from '@app/shared/pipes/relative-url/relative-url.pipe';
+import { FiatShortenerPipe } from '../../shared/pipes/fiat-shortener.pipe';
+import { FiatCurrencyPipe } from '../../shared/pipes/fiat-currency.pipe';
+import { StateService } from '../../services/state.service';
+import { MiningService } from '../../services/mining.service';
+import { StorageService } from '../../services/storage.service';
+import { RelativeUrlPipe } from '../../shared/pipes/relative-url/relative-url.pipe';
 
 @Component({
   selector: 'app-block-fees-subsidy-graph',
@@ -24,7 +24,7 @@ import { RelativeUrlPipe } from '@app/shared/pipes/relative-url/relative-url.pip
       position: absolute;
       top: 50%;
       left: calc(50% - 15px);
-      z-index: 99;
+      z-index: 100;
     }
   `],
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -75,7 +75,7 @@ export class BlockFeesSubsidyGraphComponent implements OnInit {
   }
 
   ngOnInit(): void {
-    this.seoService.setTitle($localize`:@@41545303ec98792b738d6237adbd1f3b54a22196:Block Fees Vs Subsidy`);
+    this.seoService.setTitle($localize`:@@mining.block-fees-subsidy:Block Fees Vs Subsidy`);
     this.seoService.setDescription($localize`:@@meta.description.bitcoin.graphs.block-fees-subsidy:See the mining fees earned per Bitcoin block compared to the Bitcoin block subsidy, visualized in BTC and USD over time.`);
 
     this.miningWindowPreference = this.miningService.getDefaultTimespan('24h');
@@ -182,9 +182,9 @@ export class BlockFeesSubsidyGraphComponent implements OnInit {
           if (this.displayMode === 'normal') tooltip += `<div style="margin-left: 2px">${formatNumber(data.reduce((acc, val) => acc + val.data, 0), this.locale, '1.0-3')} BTC</div>`;
           else if (this.displayMode === 'fiat') tooltip += `<div style="margin-left: 2px">${this.fiatCurrencyPipe.transform(data.reduce((acc, val) => acc + val.data, 0), null, 'USD')}</div>`;
           if (['24h', '3d'].includes(this.zoomTimeSpan)) {
-            tooltip += `<small>` + $localize`At block ${'<b style="color: white; margin-left: 2px">' + data[0].axisValue}` + `</small>`;
+            tooltip += `<small>` + $localize`At block <b style="color: white; margin-left: 2px">${data[0].axisValue}` + `</small>`;
           } else {
-            tooltip += `<small>` + $localize`Around block ${'<b style="color: white; margin-left: 2px">' + data[0].axisValue}` + `</small>`;
+            tooltip += `<small>` + $localize`Around block <b style="color: white; margin-left: 2px">${data[0].axisValue}` + `</small>`;
           }
           return tooltip;
         }.bind(this)

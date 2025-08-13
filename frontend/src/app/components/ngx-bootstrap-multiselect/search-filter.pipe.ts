@@ -1,5 +1,5 @@
 import { Pipe, PipeTransform } from '@angular/core';
-import { IMultiSelectOption } from '@components/ngx-bootstrap-multiselect/types';
+import { IMultiSelectOption } from './types';
 
 interface StringHashMap<T> {
   [k: string]: T;

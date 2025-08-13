@@ -1,5 +1,5 @@
 import { Component, Input, OnInit } from '@angular/core';
-import { Env, StateService } from '@app/services/state.service';
+import { Env, StateService } from '../../services/state.service';
 
 @Component({
   selector: 'app-code-template',
@@ -284,7 +284,7 @@ yarn add @mempool/liquid.js`;
     const headersString = code.headers ? ` -H "${code.headers}"` : ``;
     
     if (this.env.BASE_MODULE === 'mempool') {
-      if (this.network === 'main' || this.network === '' || this.network === this.env.ROOT_NETWORK) {
+      if (this.network === 'main' || this.network === '') {
         if (this.method === 'POST') {
           return `curl${headersString} -X POST -sSLd "${text}"`;
         }
@@ -296,7 +296,7 @@ yarn add @mempool/liquid.js`;
       return `curl${headersString} -sSL "${this.hostname}/${this.network}${text}"`;
     } else if (this.env.BASE_MODULE === 'liquid') {
       if (this.method === 'POST') {
-        if (this.network !== 'liquid' || this.network === this.env.ROOT_NETWORK) {
+        if (this.network !== 'liquid') {
           text = text.replace('/api', `/${this.network}/api`);
         }
         return `curl${headersString} -X POST -sSLd "${text}"`;

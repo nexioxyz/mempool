@@ -19,38 +19,6 @@
   pointer-events: none;
 }
 
-.on-pool-name-text {
-  display: inline-block;
-  padding-top: 2px;
-  font-weight: normal;
-}
-
-
-.on-pool {
-  align-items: center;
-  background-color: var(--bg);
-  display: inline-block;
-  margin-top: 4px;
-  padding: .25em .4em;
-  border-radius: .25rem;
-}
-
-.on-pool-container {
-  align-items: center;
-  position: relative;
-  top: -8px;
-  display: flex;
-  flex-direction: column;
-}
-
-.on-pool-container.selected {
-  top: 0px;
-}
-
-.pool-container {
-  margin-top: 12px;
-}
-
 .mined-block {
   position: absolute;
   top: 0px;
@@ -157,12 +125,12 @@
 #arrow-up {
   position: relative;
   left: calc(var(--block-size) * 0.6);
-  top: calc(var(--block-size) * 1.28);
+  top: calc(var(--block-size) * 1.12);
   width: 0;
   height: 0;
-  border-left: calc(var(--block-size) * 0.2) solid transparent;
-  border-right: calc(var(--block-size) * 0.2) solid transparent;
-  border-bottom: calc(var(--block-size) * 0.2) solid var(--fg);
+  border-left: calc(var(--block-size) * 0.3) solid transparent;
+  border-right: calc(var(--block-size) * 0.3) solid transparent;
+  border-bottom: calc(var(--block-size) * 0.3) solid var(--fg);
 }
 
 .flashing {
@@ -187,33 +155,19 @@
 
 .badge {
   position: relative;
-  top: 19px;
+  top: 15px;
   z-index: 101;
-  color: #FFF;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  max-width: 145px;
-
-  &.miner-name {
-    max-width: 125px;
-  }
-}
-
-.pool-logo {
-  width: 15px;
-  height: 15px;
-  position: relative;
-  top: -1px;
-  margin-right: 2px;
-}
-
-.pool-logo.faded {
-  filter: grayscale(100%) brightness(1.5);
 }
 
 .animated {
   transition: all 0.15s ease-in-out;
-  white-space: nowrap;
+}
+.show {
+  opacity: 1;
+}
+.hide {
+  opacity: 0.4;
+  pointer-events : none;
 }
 
 .time-ltr {

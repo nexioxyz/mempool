@@ -13,6 +13,8 @@
 
   .image.not-rounded {
     border-radius: 0;
+    width: 60px;
+    height: 60px;
   }
 
   .intro {
@@ -92,13 +94,6 @@
     }
   }
 
-  .whale-sponsor {
-    img {
-      width: 70px;
-      height: 70px;
-    }
-  }
-
   .alliances {
     margin-bottom: 100px;
     a {
@@ -161,11 +156,6 @@
         }
         img, svg {
           margin: 40px 29px 10px;
-          &.image.coldcard {
-            border-radius: 0;
-            height: auto;
-            margin: 20px 29px 20px;
-          }
         }
       }
     }
@@ -257,13 +247,4 @@
 .community-integrations-sponsor img.image {
   width: 64px;
   height: 64px;
-}
-
-.enterprise-sponsor {
-  .wrapper {
-    display: flex;
-    flex-wrap: wrap;
-    justify-content: center;
-    max-width: 850px;
-  }
 }

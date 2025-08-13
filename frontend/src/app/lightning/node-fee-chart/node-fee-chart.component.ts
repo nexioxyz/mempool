@@ -1,11 +1,11 @@
 import { Component, Inject, Input, LOCALE_ID, OnInit, HostBinding } from '@angular/core';
-import { EChartsOption } from '@app/graphs/echarts';
+import { EChartsOption } from '../../graphs/echarts';
 import { switchMap } from 'rxjs/operators';
-import { download } from '@app/shared/graphs.utils';
-import { LightningApiService } from '@app/lightning/lightning-api.service';
+import { download } from '../../shared/graphs.utils';
+import { LightningApiService } from '../lightning-api.service';
 import { ActivatedRoute, ParamMap } from '@angular/router';
-import { AmountShortenerPipe } from '@app/shared/pipes/amount-shortener.pipe';
-import { StateService } from '@app/services/state.service';
+import { AmountShortenerPipe } from '../../shared/pipes/amount-shortener.pipe';
+import { StateService } from '../../services/state.service';
 
 @Component({
   selector: 'app-node-fee-chart',
@@ -16,7 +16,7 @@ import { StateService } from '@app/services/state.service';
       position: absolute;
       top: 50%;
       left: calc(50% - 15px);
-      z-index: 99;
+      z-index: 100;
     }
   `],
 })

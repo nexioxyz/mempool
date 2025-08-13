@@ -14,7 +14,8 @@
 }
 
 .blockchain-wrapper {
-  height: 260px;
+  height: 250px;
+
   -webkit-user-select: none; /* Safari */
   -moz-user-select: none; /* Firefox */
   -ms-user-select: none; /* IE10+/Edge */
@@ -56,7 +57,7 @@
   color: var(--fg);
   font-size: 0.8rem;
   position: absolute;
-  bottom: -2.2em;
+  bottom: -1.8em;
   left: 1px;
   transform: translateX(-50%);
   background: none;

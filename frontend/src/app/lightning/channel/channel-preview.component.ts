@@ -2,9 +2,9 @@ import { ChangeDetectionStrategy, Component, OnInit } from '@angular/core';
 import { ActivatedRoute, ParamMap } from '@angular/router';
 import { Observable, of } from 'rxjs';
 import { catchError, switchMap, tap } from 'rxjs/operators';
-import { SeoService } from '@app/services/seo.service';
-import { OpenGraphService } from '@app/services/opengraph.service';
-import { LightningApiService } from '@app/lightning/lightning-api.service';
+import { SeoService } from '../../services/seo.service';
+import { OpenGraphService } from '../../services/opengraph.service';
+import { LightningApiService } from '../lightning-api.service';
 
 @Component({
   selector: 'app-channel-preview',
@@ -18,8 +18,6 @@ export class ChannelPreviewComponent implements OnInit {
   channelGeo: number[] = [];
   shortId: string;
 
-  ogSession: number;
-
   constructor(
     private lightningApiService: LightningApiService,
     private activatedRoute: ActivatedRoute,
@@ -32,8 +30,8 @@ export class ChannelPreviewComponent implements OnInit {
       .pipe(
         switchMap((params: ParamMap) => {
           this.shortId = params.get('short_id') || '';
-          this.ogSession = this.openGraphService.waitFor('channel-map-' + this.shortId);
-          this.ogSession = this.openGraphService.waitFor('channel-data-' + this.shortId);
+          this.openGraphService.waitFor('channel-map-' + this.shortId);
+          this.openGraphService.waitFor('channel-data-' + this.shortId);
           this.error = null;
           this.seoService.setTitle(`Channel: ${params.get('short_id')}`);
           this.seoService.setDescription($localize`:@@meta.description.lightning.channel:Overview for Lightning channel ${params.get('short_id')}. See channel capacity, the Lightning nodes involved, related on-chain transactions, and more.`);
@@ -53,13 +51,13 @@ export class ChannelPreviewComponent implements OnInit {
                     data.node_right.longitude, data.node_right.latitude,
                   ];
                 }
-                this.openGraphService.waitOver({ event: 'channel-data-' + this.shortId, sessionId: this.ogSession });
+                this.openGraphService.waitOver('channel-data-' + this.shortId);
               }),
               catchError((err) => {
                 this.error = err;
                 this.seoService.logSoft404();
-                this.openGraphService.fail({ event: 'channel-map-' + this.shortId, sessionId: this.ogSession });
-                this.openGraphService.fail({ event: 'channel-data-' + this.shortId, sessionId: this.ogSession });
+                this.openGraphService.fail('channel-map-' + this.shortId);
+                this.openGraphService.fail('channel-data-' + this.shortId);
                 return of(null);
               })
             );
@@ -68,6 +66,6 @@ export class ChannelPreviewComponent implements OnInit {
   }
 
   onMapReady() {
-    this.openGraphService.waitOver({ event: 'channel-map-' + this.shortId, sessionId: this.ogSession });
+    this.openGraphService.waitOver('channel-map-' + this.shortId);
   }
 }

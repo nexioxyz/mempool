@@ -1,12 +1,12 @@
 import { Component, OnInit, OnDestroy, Input, ViewChild } from '@angular/core';
 import { Router } from '@angular/router';
-import { Env, StateService } from '@app/services/state.service';
+import { Env, StateService } from '../../services/state.service';
 import { Observable, merge, of, Subscription } from 'rxjs';
-import { LanguageService } from '@app/services/language.service';
-import { EnterpriseService } from '@app/services/enterprise.service';
-import { NavigationService } from '@app/services/navigation.service';
-import { MenuComponent } from '@components/menu/menu.component';
-import { StorageService } from '@app/services/storage.service';
+import { LanguageService } from '../../services/language.service';
+import { EnterpriseService } from '../../services/enterprise.service';
+import { NavigationService } from '../../services/navigation.service';
+import { MenuComponent } from '../menu/menu.component';
+import { StorageService } from '../../services/storage.service';
 
 @Component({
   selector: 'app-master-page',
@@ -31,7 +31,6 @@ export class MasterPageComponent implements OnInit, OnDestroy {
   user: any = undefined;
   servicesEnabled = false;
   menuOpen = false;
-  isDropdownVisible: boolean;
   
   enterpriseInfo: any;
   enterpriseInfo$: Subscription;
@@ -75,27 +74,19 @@ export class MasterPageComponent implements OnInit, OnDestroy {
 
     const isServicesPage = this.router.url.includes('/services/');
     this.menuOpen = isServicesPage && !this.isSmallScreen();
-    this.setDropdownVisibility();
   }
 
-  setDropdownVisibility(): void {
-    const networks = [
-      this.env.TESTNET_ENABLED,
-      this.env.TESTNET4_ENABLED,
-      this.env.SIGNET_ENABLED,
-      this.env.LIQUID_ENABLED,
-      this.env.LIQUID_TESTNET_ENABLED,
-      this.env.MAINNET_ENABLED,
-    ];
-    const enabledNetworksCount = networks.filter((networkEnabled) => networkEnabled).length;
-    this.isDropdownVisible = enabledNetworksCount > 1;
+  ngOnDestroy() {
+    if (this.enterpriseInfo$) {
+      this.enterpriseInfo$.unsubscribe();
+    }
   }
 
   collapse(): void {
     this.navCollapsed = !this.navCollapsed;
   }
 
-  isSmallScreen(): boolean {
+  isSmallScreen() {
     return window.innerWidth <= 767.98;
   }
 
@@ -126,11 +117,4 @@ export class MasterPageComponent implements OnInit, OnDestroy {
   menuToggled(isOpen: boolean): void {
     this.menuOpen = isOpen;
   }
-
-  ngOnDestroy(): void {
-    if (this.enterpriseInfo$) {
-      this.enterpriseInfo$.unsubscribe();
-    }
-  }
-
 }

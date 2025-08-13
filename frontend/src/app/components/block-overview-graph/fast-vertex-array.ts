@@ -8,7 +8,7 @@
   or compacting into a smaller Float32Array when there's space to do so.
 */
 
-import TxSprite from '@components/block-overview-graph/tx-sprite';
+import TxSprite from './tx-sprite';
 
 export class FastVertexArray {
   length: number;
@@ -19,7 +19,6 @@ export class FastVertexArray {
   freeSlots: number[];
   lastSlot: number;
   dirty = false;
-  destroyed = false;
 
   constructor(length, stride) {
     this.length = length;
@@ -33,9 +32,6 @@ export class FastVertexArray {
   }
 
   insert(sprite: TxSprite): number {
-    if (this.destroyed) {
-      return;
-    }
     this.count++;
 
     let position;
@@ -49,14 +45,11 @@ export class FastVertexArray {
       }
     }
     this.sprites[position] = sprite;
-    this.dirty = true;
     return position;
+    this.dirty = true;
   }
 
   remove(index: number): void {
-    if (this.destroyed) {
-      return;
-    }
     this.count--;
     this.clearData(index);
     this.freeSlots.push(index);
@@ -68,26 +61,20 @@ export class FastVertexArray {
   }
 
   setData(index: number, dataChunk: number[]): void {
-    if (this.destroyed) {
-      return;
-    }
     this.data.set(dataChunk, (index * this.stride));
     this.dirty = true;
   }
 
-  private clearData(index: number): void {
+  clearData(index: number): void {
     this.data.fill(0, (index * this.stride), ((index + 1) * this.stride));
     this.dirty = true;
   }
 
   getData(index: number): Float32Array {
-    if (this.destroyed) {
-      return;
-    }
     return this.data.subarray(index, this.stride);
   }
 
-  private expand(): void {
+  expand(): void {
     this.length *= 2;
     const newData = new Float32Array(this.length * this.stride);
     newData.set(this.data);
@@ -95,7 +82,7 @@ export class FastVertexArray {
     this.dirty = true;
   }
 
-  private compact(): void {
+  compact(): void {
     // New array length is the smallest power of 2 larger than the sprite count (but no smaller than 512)
     const newLength = Math.max(512, Math.pow(2, Math.ceil(Math.log2(this.count))));
     if (newLength !== this.length) {
@@ -122,14 +109,5 @@ export class FastVertexArray {
 
   getVertexData(): Float32Array {
     return this.data;
-  }
-
-  destroy(): void {
-    this.data = null;
-    this.sprites = null;
-    this.freeSlots = null;
-    this.lastSlot = 0;
-    this.dirty = false;
-    this.destroyed = true;
   }
 }

@@ -1,14 +1,14 @@
-import { Input, ChangeDetectionStrategy, ChangeDetectorRef, Component, OnInit, OnChanges, SimpleChanges, Inject, LOCALE_ID, OnDestroy } from '@angular/core';
+import { ChangeDetectionStrategy, ChangeDetectorRef, Component, OnInit, Inject, LOCALE_ID, HostListener, OnDestroy } from '@angular/core';
 import { Router, ActivatedRoute } from '@angular/router';
 import { Observable, merge, of, Subject, Subscription } from 'rxjs';
 import { tap, takeUntil } from 'rxjs/operators';
-import { Env, StateService } from '@app/services/state.service';
-import { IBackendInfo } from '@interfaces/websocket.interface';
-import { LanguageService } from '@app/services/language.service';
-import { NavigationService } from '@app/services/navigation.service';
-import { StorageService } from '@app/services/storage.service';
-import { WebsocketService } from '@app/services/websocket.service';
-import { EnterpriseService } from '@app/services/enterprise.service';
+import { Env, StateService } from '../../../services/state.service';
+import { IBackendInfo } from '../../../interfaces/websocket.interface';
+import { LanguageService } from '../../../services/language.service';
+import { NavigationService } from '../../../services/navigation.service';
+import { StorageService } from '../../../services/storage.service';
+import { WebsocketService } from '../../../services/websocket.service';
+import { EnterpriseService } from '../../../services/enterprise.service';
 
 @Component({
   selector: 'app-global-footer',
@@ -16,9 +16,7 @@ import { EnterpriseService } from '@app/services/enterprise.service';
   styleUrls: ['./global-footer.component.scss'],
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
-export class GlobalFooterComponent implements OnInit, OnDestroy, OnChanges {
-  @Input() user: any = undefined;
-
+export class GlobalFooterComponent implements OnInit, OnDestroy {
   private destroy$: Subject<any> = new Subject<any>();
   env: Env;
   officialMempoolSpace = this.stateService.env.OFFICIAL_MEMPOOL_SPACE;
@@ -31,6 +29,7 @@ export class GlobalFooterComponent implements OnInit, OnDestroy, OnChanges {
   network$: Observable<string>;
   networkPaths: { [network: string]: string };
   currentNetwork = '';
+  loggedIn = false;
   urlSubscription: Subscription;
   isServicesPage = false;
 
@@ -73,15 +72,9 @@ export class GlobalFooterComponent implements OnInit, OnDestroy, OnChanges {
     });
 
     this.urlSubscription = this.route.url.subscribe((url) => {
-      this.user = this.storageService.getAuth();
+      this.loggedIn = this.storageService.getAuth() !== null;
       this.cd.markForCheck();
     })
-  }
-
-  ngOnChanges(changes: SimpleChanges): void {
-    if (changes.user) {
-      this.user = this.storageService.getAuth();
-    }
   }
 
   ngOnDestroy(): void {

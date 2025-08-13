@@ -21,7 +21,7 @@
         <tbody>
           <tr>
             <td i18n="lightning.created">Created</td>
-            <td><app-timestamp [customFormat]="'yyyy-MM-dd HH:mm'" [unixTime]="channel.created" [hideTimeSince]="true"></app-timestamp></td>
+            <td>{{ channel.created | date:'yyyy-MM-dd HH:mm' }}</td>
           </tr>
           <tr>
             <td i18n="lightning.capacity">Capacity</td>

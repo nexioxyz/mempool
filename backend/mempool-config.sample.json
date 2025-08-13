@@ -24,12 +24,11 @@
     "EXTERNAL_RETRY_INTERVAL": 0,
     "USER_AGENT": "mempool",
     "STDOUT_LOG_MIN_PRIORITY": "debug",
-    "AUTOMATIC_POOLS_UPDATE": false,
+    "AUTOMATIC_BLOCK_REINDEXING": false,
     "POOLS_JSON_URL": "https://raw.githubusercontent.com/mempool/mining-pools/master/pools-v2.json",
     "POOLS_JSON_TREE_URL": "https://api.github.com/repos/mempool/mining-pools/git/trees/master",
-    "POOLS_UPDATE_DELAY": 604800,
     "AUDIT": false,
-    "RUST_GBT": true,
+    "RUST_GBT": false,
     "LIMIT_GBT": false,
     "CPFP_INDEXING": false,
     "DISK_CACHE_BLOCK_INTERVAL": 6,
@@ -46,8 +45,7 @@
     "PASSWORD": "mempool",
     "TIMEOUT": 60000,
     "COOKIE": false,
-    "COOKIE_PATH": "/path/to/bitcoin/.cookie",
-    "DEBUG_LOG_PATH": "/path/to/bitcoin/debug.log"
+    "COOKIE_PATH": "/path/to/bitcoin/.cookie"
   },
   "ELECTRUM": {
     "HOST": "127.0.0.1",
@@ -154,10 +152,6 @@
   "MEMPOOL_SERVICES": {
     "API": "https://mempool.space/api/v1/services",
     "ACCELERATIONS": false
-  },
-  "STRATUM": {
-    "ENABLED": false,
-    "API": "http://localhost:1234"
   },
   "FIAT_PRICE": {
     "ENABLED": true,

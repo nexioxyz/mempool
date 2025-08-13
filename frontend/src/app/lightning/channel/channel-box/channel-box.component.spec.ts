@@ -1,6 +1,6 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 
-import { ChannelBoxComponent } from '@components/channel-box.component';
+import { ChannelBoxComponent } from './channel-box.component';
 
 describe('ChannelBoxComponent', () => {
   let component: ChannelBoxComponent;

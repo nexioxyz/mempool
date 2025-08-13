@@ -16,10 +16,10 @@
         "mobileOrder": 4
       },
       {
-        "component": "walletBalance",
+        "component": "balance",
         "mobileOrder": 1,
         "props": {
-          "wallet": "ONBTC"
+          "address": "32ixEdVJWo3kmvJGMTZq5jAQVZZeuwnqzo"
         }
       },
       {
@@ -30,27 +30,21 @@
         }
       },
       {
-        "component": "wallet",
+        "component": "address",
         "mobileOrder": 2,
         "props": {
-          "wallet": "ONBTC",
-          "period": "1m",
-          "label": "bitcoin.gob.sv"
+          "address": "32ixEdVJWo3kmvJGMTZq5jAQVZZeuwnqzo",
+          "period": "1m"
         }
       },
       {
-        "component": "simpleproof_cubo",
-        "mobileOrder": 6,
-        "props": {
-          "label": "CUBO+ Certificates",
-          "key": "cubo_certificates"
-        }
+        "component": "blocks"
       },
       {
-        "component": "walletTransactions",
+        "component": "addressTransactions",
         "mobileOrder": 3,
         "props": {
-          "wallet": "ONBTC"
+          "address": "32ixEdVJWo3kmvJGMTZq5jAQVZZeuwnqzo"
         }
       }
     ]

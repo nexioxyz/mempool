@@ -3,8 +3,8 @@ import { Meta } from '@angular/platform-browser';
 import { Router, ActivatedRoute, NavigationEnd } from '@angular/router';
 import { filter, map, switchMap } from 'rxjs/operators';
 import { combineLatest } from 'rxjs';
-import { StateService } from '@app/services/state.service';
-import { LanguageService } from '@app/services/language.service';
+import { StateService } from './state.service';
+import { LanguageService } from './language.service';
 
 @Injectable({
   providedIn: 'root'
@@ -12,9 +12,8 @@ import { LanguageService } from '@app/services/language.service';
 export class OpenGraphService {
   network = '';
   defaultImageUrl = '';
-  previewLoadingEvents = {}; // pending count per event type
-  previewLoadingCount = 0; // number of unique events pending
-  sessionId = 1;
+  previewLoadingEvents = {};
+  previewLoadingCount = 0;
 
   constructor(
     private ngZone: NgZone,
@@ -46,7 +45,7 @@ export class OpenGraphService {
 
     // expose routing method to global scope, so we can access it from the unfurler
     window['ogService'] = {
-      loadPage: (path) => { return this.loadPage(path); }
+      loadPage: (path) => { return this.loadPage(path) }
     };
   }
 
@@ -78,7 +77,7 @@ export class OpenGraphService {
   }
 
   /// register an event that needs to resolve before we can take a screenshot
-  waitFor(event: string): number {
+  waitFor(event) {
     if (!this.previewLoadingEvents[event]) {
       this.previewLoadingEvents[event] = 1;
       this.previewLoadingCount++;
@@ -86,31 +85,24 @@ export class OpenGraphService {
       this.previewLoadingEvents[event]++;
     }
     this.metaService.updateTag({ property: 'og:preview:loading', content: 'loading'});
-    return this.sessionId;
   }
 
   // mark an event as resolved
   // if all registered events have resolved, signal we are ready for a screenshot
-  waitOver({ event, sessionId }: { event: string, sessionId: number }) {
-    if (sessionId !== this.sessionId) {
-      return;
-    }
+  waitOver(event) {
     if (this.previewLoadingEvents[event]) {
       this.previewLoadingEvents[event]--;
       if (this.previewLoadingEvents[event] === 0 && this.previewLoadingCount > 0) {
-        delete this.previewLoadingEvents[event];
+        delete this.previewLoadingEvents[event]
         this.previewLoadingCount--;
       }
-    }
-    if (this.previewLoadingCount === 0) {
-      this.metaService.updateTag({ property: 'og:preview:ready', content: 'ready'});
+      if (this.previewLoadingCount === 0) {
+        this.metaService.updateTag({ property: 'og:preview:ready', content: 'ready'});
+      }
     }
   }
 
-  fail({ event, sessionId }: { event: string, sessionId: number }) {
-    if (sessionId !== this.sessionId) {
-      return;
-    }
+  fail(event) {
     if (this.previewLoadingEvents[event]) {
       this.metaService.updateTag({ property: 'og:preview:fail', content: 'fail'});
     }
@@ -119,7 +111,6 @@ export class OpenGraphService {
   resetLoading() {
     this.previewLoadingEvents = {};
     this.previewLoadingCount = 0;
-    this.sessionId++;
     this.metaService.removeTag("property='og:preview:loading'");
     this.metaService.removeTag("property='og:preview:ready'");
     this.metaService.removeTag("property='og:preview:fail'");
@@ -131,7 +122,7 @@ export class OpenGraphService {
       this.resetLoading();
       this.ngZone.run(() => {
         this.router.navigateByUrl(path);
-      });
+      })
     }
   }
 }

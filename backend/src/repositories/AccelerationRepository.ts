@@ -1,4 +1,4 @@
-import { AccelerationInfo } from '../api/acceleration/acceleration';
+import { AccelerationInfo, makeBlockTemplate } from '../api/acceleration/acceleration';
 import { RowDataPacket } from 'mysql2';
 import DB from '../database';
 import logger from '../logger';
@@ -11,7 +11,6 @@ import accelerationCosts from '../api/acceleration/acceleration';
 import bitcoinApi from '../api/bitcoin/bitcoin-api-factory';
 import transactionUtils from '../api/transaction-utils';
 import { BlockExtended, MempoolTransactionExtended } from '../mempool.interfaces';
-import { makeBlockTemplate } from '../api/mini-miner';
 
 export interface PublicAcceleration {
   txid: string,
@@ -192,7 +191,6 @@ class AccelerationRepository {
     }
   }
 
-  // modifies block transactions
   public async $indexAccelerationsForBlock(block: BlockExtended, accelerations: Acceleration[], transactions: MempoolTransactionExtended[]): Promise<void> {
     const blockTxs: { [txid: string]: MempoolTransactionExtended } = {};
     for (const tx of transactions) {
@@ -213,15 +211,6 @@ class AccelerationRepository {
         accelerationInfo.cost = Math.max(0, Math.min(acc.feeDelta, accelerationInfo.cost));
         this.$saveAcceleration(accelerationInfo, block, block.extras.pool.id, successfulAccelerations);
       }
-    }
-    let anyConfirmed = false;
-    for (const acc of accelerations) {
-      if (blockTxs[acc.txid]) {
-        anyConfirmed = true;
-      }
-    }
-    if (anyConfirmed) {
-      accelerationApi.accelerationConfirmed();
     }
     const lastSyncedHeight = await this.$getLastSyncedHeight();
     // if we've missed any blocks, let the indexer catch up from the last synced height on the next run
@@ -319,10 +308,10 @@ class AccelerationRepository {
         }
         const accelerationSummaries = accelerations.map(acc => ({
           ...acc,
-          pools: acc.pools,
+          pools: acc.pools.map(pool => pool.pool_unique_id),
         }))
         for (const acc of accelerations) {
-          if (blockTxs[acc.txid] && acc.pools.includes(block.extras.pool.id)) {
+          if (blockTxs[acc.txid] && acc.pools.some(pool => pool.pool_unique_id === block.extras.pool.id)) {
             const tx = blockTxs[acc.txid];
             const accelerationInfo = accelerationCosts.getAccelerationInfo(tx, boostRate, transactions);
             accelerationInfo.cost = Math.max(0, Math.min(acc.feeDelta, accelerationInfo.cost));

@@ -1,20 +1,16 @@
 .qr-wrapper {
-  position: absolute;
-  top: 30px;
-  right: 0px;
-  border: solid 10px var(--active-bg);
-  border-radius: 5px;
   background-color: #fff;
   padding: 10px;
   padding-bottom: 5px;
-  display: block;
-  z-index: 99;
+  display: inline-block;
 }
 
-.qrSpan {
-  position: relative;
-  cursor: pointer;
-  padding-left: 0.4rem;
+.qrcode-col {
+  margin: 20px auto 10px;
+  text-align: center;
+  @media (min-width: 992px){
+    margin: 0px auto 0px;
+  }
 }
 
 .fiat {
@@ -29,13 +25,9 @@
   tr td {
     &:last-child {
       text-align: right;
-      @media (min-width: 768px) {
+      @media (min-width: 576px) {
         text-align: left;
       }
-    }
-
-    &.wrap-cell {
-      white-space: normal;
     }
   }
 }
@@ -86,10 +78,10 @@ h1 {
   top: 9px;
   position: relative;
 	@media (min-width: 576px) {
-    max-width: calc(100% - 180px);
     top: 11px;
 	}
   @media (min-width: 768px) {
+    max-width: calc(100% - 180px);
     top: 17px;
   }
 }
@@ -104,6 +96,17 @@ h1 {
 .liquid-address {
   .address-table {
     table-layout: fixed;
+
+    tr td:first-child {
+      width: 170px;
+    }
+    tr td:last-child {
+      width: 80%;
+    }
+  }
+
+  .qrcode-col {
+    flex-grow: 0.5;
   }
 }
 

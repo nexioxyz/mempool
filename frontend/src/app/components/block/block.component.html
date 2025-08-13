@@ -66,10 +66,10 @@
                     [class.badge-success]="blockAudit?.matchRate >= 99"
                     [class.badge-warning]="blockAudit?.matchRate >= 75 && blockAudit?.matchRate < 99"
                     [class.badge-danger]="blockAudit?.matchRate < 75"
-                    *ngIf="blockAudit?.matchRate != null && blockAudit?.id === block.id; else nullHealth"
+                    *ngIf="blockAudit?.matchRate != null; else nullHealth"
                   >{{ blockAudit?.matchRate }}%</span>
                   <ng-template #nullHealth>
-                    <ng-container *ngIf="!isLoadingOverview && blockAudit?.id === block.id; else loadingHealth">
+                    <ng-container *ngIf="!isLoadingOverview; else loadingHealth">
                       <span class="health-badge badge badge-secondary" i18n="unknown">Unknown</span>
                     </ng-container>
                   </ng-template>
@@ -130,7 +130,7 @@
     <ng-container *ngIf="block && !isLoadingBlock; else loadingRest">
       <tr *ngIf="network !== 'liquid' && network !== 'liquidtestnet'">
         <td i18n="mempool-block.fee-span">Fee span</td>
-        <td><app-fee-rate [fee]="block.extras?.minFee" [showUnit]="false"></app-fee-rate> - <app-fee-rate [fee]="block.extras?.maxFee"></app-fee-rate></td>
+        <td><app-fee-rate [fee]="block.extras?.minFee" [showUnit]="false" rounding="1.0-0"></app-fee-rate> - <app-fee-rate [fee]="block.extras?.maxFee" rounding="1.0-0"></app-fee-rate></td>
       </tr>
       <tr *ngIf="block.extras?.medianFee != undefined">
         <td class="td-width" i18n="block.median-fee">Median fee</td>
@@ -181,15 +181,8 @@
       <tr *ngIf="network !== 'liquid' && network !== 'liquidtestnet'">
         <td i18n="block.miner">Miner</td>
         <td *ngIf="stateService.env.MINING_DASHBOARD">
-          <a placement="bottom" [routerLink]="['/mining/pool' | relativeUrl, block.extras.pool.slug]" class="badge" style="color: #FFF;padding:0;">
-            <span class="miner-name" *ngIf="block.extras.pool.minerNames?.length > 1 && block.extras.pool.minerNames[1] != ''">
-              @if (block.extras.pool.minerNames[1].length > 16) {
-                {{ block.extras.pool.minerNames[1].slice(0, 15) }}…
-              } @else {
-                {{ block.extras.pool.minerNames[1] }}
-              }
-            </span>
-            <img class="pool-logo" [src]="'/resources/mining-pools/' + block.extras.pool.slug + '.svg'" onError="this.src = '/resources/mining-pools/default.svg'" [alt]="'Logo of ' + block.extras.pool.name + ' mining pool'">
+          <a placement="bottom" [routerLink]="['/mining/pool' | relativeUrl, block.extras.pool.slug]" class="badge"
+            [class]="block.extras.pool.slug === 'unknown' ? 'badge-secondary' : 'badge-primary'">
             {{ block.extras.pool.name }}
           </a>
         </td>
@@ -345,7 +338,7 @@
           <ngb-pagination class="pagination-container float-right" [disabled]="true" [collectionSize]="block.tx_count" [rotate]="true" [pageSize]="stateService.env.ITEMS_PER_PAGE" [maxSize]="paginationMaxSize" [boundaryLinks]="true" [ellipses]="false"></ngb-pagination>
         </div>
         <div class="clearfix"></div>
-        <div class="tx-skeleton">
+        <div class="text-center mb-4" class="tx-skeleton">
   
           <div class="header-bg box">
             <span class="skeleton-loader"></span>
@@ -371,7 +364,7 @@
   </ng-template>
   <ng-template [ngIf]="error">
     <app-http-error [error]="error">
-      <span i18n="block.error.loading-block-data">Error loading block data.</span>
+      <span i18n="error.general-loading-data">Error loading data.</span>
     </app-http-error>
   </ng-template>
 
@@ -418,7 +411,7 @@
         <td class="text-wrap">
           <app-amount [satoshis]="block.extras.totalFees" digitsInfo="1.2-3" [noFiat]="true"></app-amount>
           <span *ngIf="oobFees" class="oobFees" i18n-ngbTooltip="Acceleration Fees" ngbTooltip="Acceleration fees paid out-of-band">
-             <app-amount [satoshis]="oobFees" digitsInfo="1.8-8" [noFiat]="true" [addPlus]="true"></app-amount>
+             +<app-amount [satoshis]="oobFees" digitsInfo="1.2-8" [noFiat]="true"></app-amount>
           </span>
           <span *ngIf="blockAudit.feeDelta" class="difference" [class.positive]="blockAudit.feeDelta <= 0" [class.negative]="blockAudit.feeDelta > 0">
             {{ blockAudit.feeDelta < 0 ? '+' : '' }}{{ (-blockAudit.feeDelta * 100) | amountShortener: 2 }}%
